@@ -102,6 +102,7 @@ That warning uses `bin/fm-supervision-instructions.sh --repair-line`, so it alwa
 - If `jq` is removed after installation, the hook remains silent and exits 0, turn-end wakes stop, and Kimi crews fall back to idle detection.
 - Unreadable hook input remains fail-open.
 - No harness adapter uses a shell ampersand to manufacture supervision.
+- agy is outside this specific guard's harness integrations: its global Stop hook (`bin/fm-agy-stop-hook.sh`) owns watcher continuity directly rather than adapting to `bin/fm-turnend-guard.sh`'s predicate; [`docs/supervision-protocols/agy.md`](supervision-protocols/agy.md) and [`.agents/skills/harness-adapters/SKILL.md`](../.agents/skills/harness-adapters/SKILL.md) own its contract.
 
 ## Regression coverage
 
