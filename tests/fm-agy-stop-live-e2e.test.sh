@@ -87,6 +87,7 @@ pass "the launch environment is inherited by the hook"
 
 # --- 3. decision=continue genuinely re-enters the agent loop ----------------
 : > "$LOG"; rm -f "$COUNT"
+# shellcheck disable=SC2016 # $n expands later, inside the generated hook script.
 install_hook '
 if [ "$n" -le 2 ]; then
   echo "{\"decision\":\"continue\",\"reason\":\"Say the word BANANA, then stop.\"}"
@@ -106,6 +107,7 @@ pass "decision=continue re-enters the loop and injects the reason"
 # bound this should be revisited, but a REGRESSION here (a low ceiling) would
 # silently cap supervision, so it is worth knowing either way.
 : > "$LOG"; rm -f "$COUNT"
+# shellcheck disable=SC2016 # $n expands later, inside the generated hook script.
 install_hook '
 if [ "$n" -le 6 ]; then
   echo "{\"decision\":\"continue\",\"reason\":\"Reply with the single word C.\"}"
