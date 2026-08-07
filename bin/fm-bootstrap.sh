@@ -79,8 +79,9 @@
 #          refresh relays any completed fm-fleet-sync.sh output before the
 #          aggregate timeout skip line with timeout and elapsed seconds.
 #          Set FM_FLEET_PRUNE=0 to skip branch pruning during that refresh.
-#          Set FM_BOOTSTRAP_DETECT_ONLY=1 to skip the six MUTATING sweeps
-#          (PR-check migration, secondmate_sync, secondmate_liveness_sweep,
+#          Set FM_BOOTSTRAP_DETECT_ONLY=1 to skip the seven MUTATING sweeps
+#          (PR-check migration, agy primary Stop-hook install, secondmate_sync,
+#          secondmate_liveness_sweep,
 #          secondmate_handoff_resume, x_mode_setup, fleet_sync) while still
 #          printing every read-only detect line
 #          above; the TANGLE line switches to advisory-only wording with no
@@ -962,13 +963,14 @@ crew_dispatch_validate() {
     return 0
   fi
   err=$(jq -r '
-    def verified($h): ["claude","codex","opencode","pi","pi-signed","grok","kimi","muse"] | index($h);
+    def verified($h): ["claude","codex","opencode","pi","pi-signed","grok","kimi","muse","agy"] | index($h);
     def effort_ok($h; $e):
       if $e == null then true
       elif ($e | type) != "string" then false
       elif $h == "claude" then (["low","medium","high","xhigh","max"] | index($e))
       elif $h == "codex" then (["low","medium","high","xhigh"] | index($e))
       elif $h == "grok" then (["low","medium","high"] | index($e))
+      elif $h == "agy" then (["low","medium","high"] | index($e))
       elif $h == "pi" or $h == "pi-signed" then (["low","medium","high","xhigh","max"] | index($e))
       elif $h == "muse" then (["low","medium","high","xhigh","max"] | index($e))
       elif $h == "opencode" or $h == "kimi" then false
@@ -1083,6 +1085,16 @@ fi
 if [ "${FM_BOOTSTRAP_DETECT_ONLY:-0}" != 1 ] && local_phase; then
   "$SCRIPT_DIR/fm-pr-check-migrate.sh" || true
   startup_memory_budget_setup
+  # An agy primary's watcher continuity is owned by a Stop hook that lives in
+  # $HOME rather than in the repo, so unlike claude's tracked settings and pi's
+  # tracked extensions it cannot arrive with a checkout - it has to be installed
+  # at a locked session boundary. Silent when it is already in place (the
+  # installer is idempotent and owns one key); only a failure is actionable,
+  # because without the hook this session has NO structural supervision backstop.
+  if [ "$("$SCRIPT_DIR/fm-harness.sh" 2>/dev/null || true)" = agy ] &&
+    ! "$SCRIPT_DIR/fm-agy-hooks-install.sh" install >/dev/null 2>&1; then
+    echo "AGY_HOOK: install failed; this agy session has no Stop-hook watcher backstop (fix: bin/fm-agy-hooks-install.sh install)"
+  fi
 fi
 
 # Local detection: presence, version floors, and configuration. Nothing here
