@@ -878,7 +878,17 @@ launch_template() {
         echo "error: harness CLI 'agy' not found on PATH; install the Antigravity CLI or dispatch this task on another verified adapter" >&2
         return 1
       }
-      printf '%s' 'FM_AGY_HOOK_ROOT=__AGYROOT__ FM_AGY_TURNEND=__TURNEND__ agy --dangerously-skip-permissions __MODELFLAG____EFFORTFLAG__--prompt-interactive "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
+      # A secondmate is its own primary-shaped home that has to supervise its own
+      # fleet, so it gets the hook's PRIMARY role (the auto-arm) rather than the
+      # crew turn-end marker - the same split claude makes by accepting a marked
+      # secondmate home in its Stop-owned auto-arm scope. The two variables are
+      # deliberately mutually exclusive: bin/fm-agy-stop-hook.sh takes the crew
+      # path first and returns, so a secondmate carrying both would never arm.
+      if [ "$kind" = secondmate ]; then
+        printf '%s' 'FM_AGY_HOOK_ROOT=__AGYROOT__ FM_AGY_PRIMARY_HOME=__AGYHOME__ agy --dangerously-skip-permissions __MODELFLAG____EFFORTFLAG__--prompt-interactive "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
+      else
+        printf '%s' 'FM_AGY_HOOK_ROOT=__AGYROOT__ FM_AGY_TURNEND=__TURNEND__ agy --dangerously-skip-permissions __MODELFLAG____EFFORTFLAG__--prompt-interactive "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
+      fi
       ;;
     # muse (Muse Code): a positional prompt starts the supervised interactive
     # session. --yolo is the single flag that makes a crewmate pane viable: muse
@@ -2300,6 +2310,7 @@ sq_piturnend=$(shell_quote "$PROJ_ABS/.pi/extensions/fm-primary-turnend-guard.ts
 sq_piwatch=$(shell_quote "$PROJ_ABS/.pi/extensions/fm-primary-pi-watch.ts")
 sq_opinput=$(shell_quote "$FM_ROOT/bin/fm-operational-input.sh")
 sq_agyroot=$(shell_quote "$FM_ROOT")
+sq_agyhome=$(shell_quote "$PROJ_ABS")
 MODELFLAG=$(model_flag_for_harness "$HARNESS" "$MODEL")
 EFFORTFLAG=$(effort_flag_for_harness "$HARNESS" "$EFFORT" "$MODEL")
 LAUNCH=${LAUNCH//__MODELFLAG__/$MODELFLAG}
@@ -2311,6 +2322,7 @@ LAUNCH=${LAUNCH//__PITURNEND__/$sq_piturnend}
 LAUNCH=${LAUNCH//__PIWATCH__/$sq_piwatch}
 LAUNCH=${LAUNCH//__OPINPUT__/$sq_opinput}
 LAUNCH=${LAUNCH//__AGYROOT__/$sq_agyroot}
+LAUNCH=${LAUNCH//__AGYHOME__/$sq_agyhome}
 # Crewmate panes are created by a long-lived tmux/herdr daemon that does not
 # inherit firstmate's current environment, so a bare `claude` in the pane falls
 # back to the default ~/.claude store even when firstmate itself runs under a

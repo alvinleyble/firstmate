@@ -451,6 +451,8 @@ A per-worktree hook is therefore not available, and firstmate uses one global ho
 The binding is simpler than grok's because agy exports the LAUNCH ENVIRONMENT into hook processes: a variable set on the agy command line is readable by the hook, so `bin/fm-spawn.sh` passes `FM_AGY_TURNEND` and `FM_AGY_HOOK_ROOT` directly instead of routing through a worktree token file.
 The hook's working directory is the directory containing `hooks.json`, not the workspace, and `workspacePaths` in the payload was empty in both print and interactive mode, so neither can identify the task.
 `bin/fm-agy-stop-hook.sh` validates the shape of every variable it reads and is an inert `{"decision":"allow"}` for any agy session firstmate did not launch.
+A crewmate or scout receives `FM_AGY_TURNEND` and gets the per-turn wake marker, while a secondmate receives `FM_AGY_PRIMARY_HOME` and gets the auto-arm below, because a secondmate supervises its own fleet.
+The two are mutually exclusive; the crew role wins if both ever appear, so a crew pane can never start arming a watcher.
 
 ### Primary-session guard fact (verified 2026-08-07, agy 1.1.10)
 

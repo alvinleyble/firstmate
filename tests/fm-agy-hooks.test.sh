@@ -100,6 +100,17 @@ for bad in "$TMP/evil.txt" "$TMP/evil.turn-ended" "relative.turn-ended"; do
 done
 pass "the crew role writes only inside a real state directory"
 
+# The two roles are mutually exclusive by construction: bin/fm-spawn.sh gives a
+# crewmate FM_AGY_TURNEND and a secondmate FM_AGY_PRIMARY_HOME, never both. Pin
+# the precedence anyway, because a future launch carrying both must degrade to
+# the harmless crew signal rather than have a crew pane start arming a watcher.
+rm -f "$MARK"
+out=$(hook_in_stub FM_AGY_TURNEND="$MARK" FM_AGY_PRIMARY_HOME="$HOME_OK")
+[ "$(decision_of "$out")" = allow ] ||
+  fail "a pane carrying both role variables must take the crew path and allow the stop"
+assert_present "$MARK" "the crew path must still record the turn boundary"
+pass "the crew role takes precedence when both role variables are present"
+
 # --- primary role: continuation and its bound -------------------------------
 
 rm -f "$HOME_OK/state/.agy-autoarm-blocks"
