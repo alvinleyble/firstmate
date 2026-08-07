@@ -382,7 +382,7 @@ spawn_remote_secondmate() {
     harness=$("$FM_ROOT/bin/fm-harness.sh" secondmate)
   fi
   case "$harness" in
-    claude|codex|opencode|pi|pi-signed|grok|kimi) ;;
+    claude|codex|opencode|pi|pi-signed|grok|kimi|agy) ;;
     *)
       fm_lock_release "$registry_lock" || true
       fm_lock_release "$SPAWN_TASK_LOCK" || true
@@ -789,7 +789,7 @@ FIRSTMATE_HOME=
 
 if [ "$KIND" = secondmate ]; then
   case "${POS[1]:-}" in
-    ''|claude|codex|opencode|pi|pi-signed|grok|kimi|muse)
+    ''|claude|codex|opencode|pi|pi-signed|grok|kimi|muse|agy)
       ARG3=${POS[1]:-}
       ;;
     *' '*)
@@ -855,6 +855,31 @@ launch_template() {
     # Its turn-end signal is a globally configured Stop hook plus a guarded
     # per-task worktree token, so no launch placeholder belongs here.
     kimi) printf '%s' '__KIMIBIN__ __MODELFLAG__--auto' ;;
+    # agy (Antigravity CLI). --prompt-interactive runs the brief and KEEPS the
+    # session, which is the interactive shape firstmate needs; bare --prompt is
+    # an alias for one-shot --print and would exit after the first answer.
+    #
+    # FM_AGY_HOOK_ROOT/FM_AGY_TURNEND are read by the single firstmate-owned
+    # GLOBAL Stop hook (bin/fm-agy-stop-hook.sh, installed by
+    # bin/fm-agy-hooks-install.sh). agy exports the launch environment into its
+    # hook processes (verified, agy 1.1.10), so the per-task binding is a plain
+    # env var and needs none of grok's worktree-token indirection. Without these
+    # the shared global hook is an inert no-op, which is what every non-firstmate
+    # agy session on this machine gets.
+    #
+    # Unlike kimi (which falls back to $HOME/.kimi-code/bin/kimi) and muse
+    # (which resolves an absolute path), agy is launched as a bare name from
+    # PATH, so a missing binary would surface only as a dead pane. Refuse here
+    # instead: an absent CLI is a captain-facing setup problem, not a task
+    # failure. Keep this scoped to agy - a blanket command -v gate over every
+    # adapter would break exactly the two fallbacks named above.
+    agy)
+      command -v agy >/dev/null 2>&1 || {
+        echo "error: harness CLI 'agy' not found on PATH; install the Antigravity CLI or dispatch this task on another verified adapter" >&2
+        return 1
+      }
+      printf '%s' 'FM_AGY_HOOK_ROOT=__AGYROOT__ FM_AGY_TURNEND=__TURNEND__ agy --dangerously-skip-permissions __MODELFLAG____EFFORTFLAG__--prompt-interactive "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
+      ;;
     # muse (Muse Code): a positional prompt starts the supervised interactive
     # session. --yolo is the single flag that makes a crewmate pane viable: muse
     # ships approval prompts AND a filesystem/network sandbox ON by default
@@ -1049,16 +1074,38 @@ model_flag_for_harness() {
   local harness=$1 model=$2
   [ -n "$model" ] && [ "$model" != default ] || return 0
   case "$harness" in
-    claude|codex|opencode|pi|pi-signed|grok|kimi|muse)
+    claude|codex|opencode|pi|pi-signed|grok|kimi|muse|agy)
       printf -- '--model %s ' "$(shell_quote "$model")"
       ;;
   esac
 }
 
+# $3 (model) matters only for agy, whose --model and --effort are NOT the
+# independent axes every other adapter has; see the agy branch below.
 effort_flag_for_harness() {
-  local harness=$1 effort=$2
+  local harness=$1 effort=$2 model=${3:-}
   [ -n "$effort" ] && [ "$effort" != default ] || return 0
   case "$harness" in
+    # agy's model catalog bakes the effort into the model NAME
+    # (gemini-3.1-pro-low, gemini-3.6-flash-high), and agy rejects the launch
+    # outright when the two disagree - verified on agy 1.1.10:
+    #   --model gemini-3.1-pro-low --effort high
+    #     -> "--model gemini-3.1-pro-low conflicts with --effort=high"
+    #   --model gemini-3.1-pro-medium --effort high
+    #     -> "--effort is not supported for model gemini-3.1-pro-medium"
+    # An effort-suffixed model already carries the captain's effort, so emit no
+    # flag rather than turning a resolved profile into a refused spawn. agy's
+    # own ceiling is high: xhigh and max are rejected with
+    # "invalid --effort (valid: low, medium, high)", so they are omitted the
+    # same way grok omits everything above high.
+    agy)
+      case "$model" in
+        *-low|*-medium|*-high) return 0 ;;
+      esac
+      case "$effort" in
+        low|medium|high) printf -- '--effort %s ' "$(shell_quote "$effort")" ;;
+      esac
+      ;;
     claude)
       case "$effort" in
         low|medium|high|xhigh|max) printf -- '--effort %s ' "$(shell_quote "$effort")" ;;
@@ -2136,6 +2183,23 @@ EOF
       printf 'token=%s\n' "${auth_file##*/}" > "$WT/.fm-kimi-turnend"
       exclude_path '.fm-kimi-turnend'
       ;;
+    agy*)
+      # agy fires a Stop hook at every turn boundary, the same per-turn wake
+      # grok and kimi provide. Like grok's, the hook has to be GLOBAL: agy
+      # 1.1.10 did not load a workspace .agents/hooks.json at all, while
+      # ~/.gemini/config/hooks.json loads on every session with no trust gate.
+      # Unlike grok's, no worktree token file is needed, because agy exports the
+      # launch environment into the hook process - the launch command carries
+      # FM_AGY_TURNEND directly and bin/fm-agy-stop-hook.sh validates its shape.
+      #
+      # Installation is idempotent and owns exactly one key in that shared file,
+      # so re-running it never disturbs the captain's own hooks. A failure here
+      # is not fatal: the task still runs, it just falls back to stale-pane
+      # detection for wakes, so report it rather than refusing the spawn.
+      if ! "$FM_ROOT/bin/fm-agy-hooks-install.sh" install >/dev/null 2>&1; then
+        echo "warning: could not install the agy turn-end hook; $ID will rely on stale-pane detection for wakes" >&2
+      fi
+      ;;
   esac
 fi
 
@@ -2235,8 +2299,9 @@ sq_piext=$(shell_quote "$STATE/$ID.pi-ext.ts")
 sq_piturnend=$(shell_quote "$PROJ_ABS/.pi/extensions/fm-primary-turnend-guard.ts")
 sq_piwatch=$(shell_quote "$PROJ_ABS/.pi/extensions/fm-primary-pi-watch.ts")
 sq_opinput=$(shell_quote "$FM_ROOT/bin/fm-operational-input.sh")
+sq_agyroot=$(shell_quote "$FM_ROOT")
 MODELFLAG=$(model_flag_for_harness "$HARNESS" "$MODEL")
-EFFORTFLAG=$(effort_flag_for_harness "$HARNESS" "$EFFORT")
+EFFORTFLAG=$(effort_flag_for_harness "$HARNESS" "$EFFORT" "$MODEL")
 LAUNCH=${LAUNCH//__MODELFLAG__/$MODELFLAG}
 LAUNCH=${LAUNCH//__EFFORTFLAG__/$EFFORTFLAG}
 LAUNCH=${LAUNCH//__BRIEF__/$sq_brief}
@@ -2245,6 +2310,7 @@ LAUNCH=${LAUNCH//__PIEXT__/$sq_piext}
 LAUNCH=${LAUNCH//__PITURNEND__/$sq_piturnend}
 LAUNCH=${LAUNCH//__PIWATCH__/$sq_piwatch}
 LAUNCH=${LAUNCH//__OPINPUT__/$sq_opinput}
+LAUNCH=${LAUNCH//__AGYROOT__/$sq_agyroot}
 # Crewmate panes are created by a long-lived tmux/herdr daemon that does not
 # inherit firstmate's current environment, so a bare `claude` in the pane falls
 # back to the default ~/.claude store even when firstmate itself runs under a
