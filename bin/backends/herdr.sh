@@ -3275,8 +3275,8 @@ fm_backend_herdr_socket_path() {  # <session>
 # and both `events.subscribe` and `pane.agent_status_changed` present in `herdr
 # api schema`. FM_BACKEND_HERDR_EVENTS_FORCE overrides the whole verdict for
 # tests (1 = capable, 0 = incapable) without touching the real binary. The
-# `api schema` read is ~220KB, so callers (the watcher) memoize this per session
-# for a process lifetime rather than probing every poll.
+# `api schema` read is ~248KB (measured on herdr 0.7.5), so callers (the watcher)
+# memoize this per session for a process lifetime rather than probing every poll.
 fm_backend_herdr_events_capable() {  # <session>
   local session=$1 protocol schema
   case "${FM_BACKEND_HERDR_EVENTS_FORCE:-}" in
@@ -3291,8 +3291,14 @@ fm_backend_herdr_events_capable() {  # <session>
   case "$protocol" in ''|*[!0-9]*) return 1 ;; esac
   [ "$protocol" -ge "$FM_BACKEND_HERDR_MIN_EVENTS_PROTOCOL" ] || return 1
   schema=$(herdr api schema --json 2>/dev/null) || return 1
-  printf '%s' "$schema" | grep -Fq 'events.subscribe' || return 1
-  printf '%s' "$schema" | grep -Fq 'pane.agent_status_changed' || return 1
+  # Substring tests stay in-shell: piping the ~248KB schema into an early-exiting
+  # `grep -q` closes the pipe mid-write, because both tokens sit past the 64KB pipe
+  # buffer and printf is still writing when grep exits. With an EXIT trap installed
+  # - the watcher has one - bash survives the SIGPIPE in order to run that trap, so
+  # the write instead fails with EPIPE and printf reports "write error: Broken pipe"
+  # on stderr rather than dying silently.
+  case "$schema" in *'events.subscribe'*) ;; *) return 1 ;; esac
+  case "$schema" in *'pane.agent_status_changed'*) ;; *) return 1 ;; esac
   return 0
 }
 

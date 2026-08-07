@@ -815,6 +815,12 @@ fi
 # (busy-state source, exit command, dialogs, quirks) lives in the harness-adapters skill.
 launch_template() {
   local harness=$1 kind=${2:-ship}
+  local bin_check=$harness
+  [ "$harness" = pi-signed ] && bin_check=pi
+  if ! command -v "$bin_check" >/dev/null 2>&1; then
+    echo "error: harness CLI '$bin_check' not found on PATH. Refusing spawn per captain pre-flight gate. Ask captain for guidance." >&2
+    return 1
+  fi
   # shellcheck disable=SC2016  # single quotes are deliberate: $(cat ...) expands in the crewmate pane, not here
   case "$harness" in
     # CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false disables claude's interactive
