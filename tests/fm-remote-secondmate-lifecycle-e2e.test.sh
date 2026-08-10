@@ -17,6 +17,8 @@ REMOTE_ROOT="$TMP_ROOT/remote-root"
 REMOTE_HOME="$TMP_ROOT/remote-home"
 LOCAL_HOME="$TMP_ROOT/local-home"
 FAKEBIN=$(fm_fakebin "$TMP_ROOT/fake")
+fm_fake_exit0 "$FAKEBIN" codex grok pi
+PATH="$FAKEBIN:$PATH"
 SSH_COUNT="$TMP_ROOT/ssh.count"
 DOCTOR_LOG="$TMP_ROOT/doctor.log"
 HERDR_STATE="$TMP_ROOT/remote-herdr.state"

@@ -109,6 +109,24 @@ fm_task_id_creation_valid() {
   [ "${#id}" -le 64 ]
 }
 
+# A task id can still carry an unresolved migration obligation recorded by
+# bin/fm-pr-check-migrate.sh (the single owner of the quarantine state
+# machine) at the moment a fresh poll is about to be registered for that same
+# id. The five kinds below are its non-terminal ones; the terminal kinds
+# (canonical, ambiguous, validated, noncanonical) need no reconciliation and
+# are not checked here.
+fm_pr_quarantine_obligation_open() {
+  local state=${1-} id=${2-} quarantine kind path
+  quarantine="$state/.pr-check-quarantine"
+  for kind in pending-canonical pending-ambiguous failure-canonical failure-ambiguous failure-replacement; do
+    path="$quarantine/$id.diagnostic.$kind"
+    if [ -e "$path" ] || [ -L "$path" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 # GitLab serves self-hosted instances, so the host is part of the identity
 # rather than a constant. It is accepted only as a lowercase DNS name with no
 # userinfo, port, or trailing dot, which keeps one canonical spelling per MR.

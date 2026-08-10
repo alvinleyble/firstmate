@@ -119,4 +119,15 @@ fm_pr_poll_publish_prepared || {
   echo "error: could not publish PR poll" >&2
   exit 1
 }
+
+# The obligation check is deferred until immediately after the fresh poll is
+# published (rather than latched earlier, before the network round-trip and
+# poll preparation above) so a quarantine written for this id by a concurrent
+# migrate.sh sweep during that window is still caught and reconciled here.
+if fm_pr_quarantine_obligation_open "$STATE" "$ID"; then
+  "$SCRIPT_DIR/fm-pr-check-migrate.sh" || {
+    echo "error: this poll is armed, but a prior migration obligation for this task could not be reconciled" >&2
+    exit 1
+  }
+fi
 printf 'armed: state/%s.check.sh\n' "$ID"

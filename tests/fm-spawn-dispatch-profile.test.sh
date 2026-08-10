@@ -42,7 +42,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
-  fm_fake_exit0 "$fakebin" treehouse pi-signed
+  fm_fake_exit0 "$fakebin" treehouse pi-signed claude codex grok opencode pi
   printf '%s\n' "$fakebin"
 }
 

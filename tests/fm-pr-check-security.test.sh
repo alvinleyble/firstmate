@@ -1453,22 +1453,71 @@ test_ambiguous_failure_accepts_validated_replacement() {
 
   rmdir "$state/task-a.pr-poll"
   FM_HOME="$dir/home" FM_ROOT_OVERRIDE="$ROOT" PATH="$dir/fakebin:$BASE_PATH" \
-    "$PR_CHECK" task-a https://github.com/o/r/pull/10 >/dev/null \
-    || fail "validated replacement poll could not be published"
+    "$PR_CHECK" task-a https://github.com/o/r/pull/10 > "$dir/prcheck.out" 2> "$dir/prcheck.err" \
+    || fail "validated replacement poll could not be published: $(cat "$dir/prcheck.err")"
   fm_pr_poll_artifacts_valid "$state" task-a "$POLL" \
     || fail "replacement registration did not publish a valid poll pair"
 
-  FM_HOME="$dir/home" PATH="$BASE_PATH" "$MIGRATE" > "$dir/migrate-retry.out" 2> "$dir/migrate-retry.err" \
-    || fail "migration did not accept the validated replacement: $(cat "$dir/migrate-retry.err")"
+  # An unresolved obligation for this exact id must never survive a fresh
+  # registration: fm-pr-check.sh reconciles it against the just-published
+  # replacement itself, synchronously, rather than leaving it for some later,
+  # unrelated sweep to eventually notice.
   assert_valid_migration_marker "$state/.pr-check-migration-v1"
   [ ! -e "$pending" ] && [ ! -e "$failure" ] \
     || fail "validated replacement retained ambiguous failure obligations"
   [ -f "$success" ] || fail "validated replacement did not persist its recovery outcome"
+  assert_grep 'validated replacement polls armed' "$dir/prcheck.out" \
+    "replacement recovery did not report its armed outcome"
+
+  FM_HOME="$dir/home" PATH="$BASE_PATH" "$MIGRATE" > "$dir/migrate-retry.out" 2> "$dir/migrate-retry.err" \
+    || fail "migration did not stay idempotent after automatic reconciliation: $(cat "$dir/migrate-retry.err")"
+  [ ! -s "$dir/migrate-retry.out" ] \
+    || fail "an already-reconciled task triggered redundant migration work: $(cat "$dir/migrate-retry.out")"
+  assert_valid_migration_marker "$state/.pr-check-migration-v1"
   fm_pr_poll_artifacts_valid "$state" task-a "$POLL" \
     || fail "migration changed the validated replacement poll"
-  assert_grep 'validated replacement polls armed' "$dir/migrate-retry.out" \
-    "replacement recovery did not report its armed outcome"
   pass "ambiguous migration recovery accepts an explicitly validated replacement poll"
+}
+
+test_stale_obligation_pair_never_blocks_watcher_or_survives_rearm() {
+  local dir state rc pending failure
+  dir=$(make_case stale-obligation-pair)
+  state="$dir/home/state"
+  start_ambiguous_pending_repair "$dir"
+  pending="$state/.pr-check-quarantine/task-a.diagnostic.pending-ambiguous"
+  failure="$state/.pr-check-quarantine/task-a.diagnostic.failure-ambiguous"
+  [ -f "$pending" ] && [ -f "$failure" ] \
+    || fail "fixture did not leave a pending and a failure obligation coexisting for one task id"
+
+  # This is exactly what bin/fm-watch.sh runs before it will arm any check at
+  # all: one task's coexisting pending and failure obligations must never
+  # make that home-wide arm attempt refuse.
+  set +e
+  FM_HOME="$dir/home" PATH="$BASE_PATH" "$MIGRATE" --checks-safe > "$dir/watcher-arm.out" 2> "$dir/watcher-arm.err"
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "a stale pending/failure obligation pair blocked the watcher's own arm check: $(cat "$dir/watcher-arm.err")"
+  [ ! -s "$dir/watcher-arm.err" ] || fail "the watcher's arm check reported an error despite exiting 0: $(cat "$dir/watcher-arm.err")"
+  [ -f "$pending" ] && [ -f "$failure" ] \
+    || fail "the watcher's own lock-free arm check silently discarded the obligation pair instead of leaving it for a full reconciliation"
+
+  # Registering a fresh, valid replacement for this exact id must reconcile
+  # the coexisting pair as part of that single call - it must never be
+  # possible to arm a poll while the pair from before it still sits there.
+  FM_HOME="$dir/home" FM_ROOT_OVERRIDE="$ROOT" PATH="$dir/fakebin:$BASE_PATH" \
+    "$PR_CHECK" task-a https://github.com/o/r/pull/10 > "$dir/rearm.out" 2> "$dir/rearm.err" \
+    || fail "registering a fresh replacement over an open obligation was refused: $(cat "$dir/rearm.err")"
+  fm_pr_poll_artifacts_valid "$state" task-a "$POLL" \
+    || fail "the reconciled replacement registration did not publish a valid poll pair"
+  [ ! -e "$pending" ] && [ ! -e "$failure" ] \
+    || fail "the task id kept a pending and a failure obligation coexisting after a fresh replacement was armed"
+  [ -f "$state/.pr-check-quarantine/task-a.diagnostic.validated" ] \
+    || fail "the reconciled replacement did not persist a single terminal outcome"
+
+  # And the watcher's own arm check must stay clean afterward too.
+  FM_HOME="$dir/home" PATH="$BASE_PATH" "$MIGRATE" --checks-safe > "$dir/watcher-arm-2.out" 2> "$dir/watcher-arm-2.err" \
+    || fail "the watcher's arm check failed after reconciliation: $(cat "$dir/watcher-arm-2.err")"
+  pass "a task id's coexisting pending and failure migration obligations never block watcher arming and never survive a fresh rearm"
 }
 
 test_replacement_provenance_negative_matrix() {
@@ -3349,6 +3398,7 @@ test_postrename_marker_and_diagnostic_validation_retries
 test_quarantine_validation_and_retry_contract
 test_failed_outcomes_block_every_retry_until_repaired
 test_ambiguous_failure_accepts_validated_replacement
+test_stale_obligation_pair_never_blocks_watcher_or_survives_rearm
 test_replacement_provenance_negative_matrix
 test_complete_single_link_validation
 test_canonical_publication_failure_recovers_only_on_retry
