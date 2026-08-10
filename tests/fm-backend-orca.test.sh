@@ -36,6 +36,7 @@ fi
 exit 0
 SH
   chmod +x "$fb/orca"
+  fm_fake_exit0 "$fb" claude
   printf '%s\n' "$fb"
 }
 

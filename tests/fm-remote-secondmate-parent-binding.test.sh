@@ -119,6 +119,15 @@ pass "remote provisioning publishes durable parent state before its completion m
 ) | (cd "$REMOTE_ROOT" && tar -xf -)
 install_remote_herdr_fixture "$REMOTE_ROOT" "$HERDR_STATE" "$HERDR_LOG" \
   "$TMP_ROOT/herdr-send-fail" "$TMP_ROOT/herdr.sock"
+# The remote worker execs the staged command with a sanitized child PATH
+# (fm_remote_job_build_child_path: "$REMOTE_ROOT/bin:<operator dirs>"), which
+# never sees this test process's own PATH, so the secondmate's harness CLI
+# (fm-spawn.sh's pre-flight `command -v` gate) has to be reachable from there.
+cat > "$REMOTE_ROOT/bin/codex" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+chmod +x "$REMOTE_ROOT/bin/codex"
 git -C "$REMOTE_ROOT" init -q -b main
 git -C "$REMOTE_ROOT" config user.email test@example.com
 git -C "$REMOTE_ROOT" config user.name Test

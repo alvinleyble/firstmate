@@ -817,7 +817,12 @@ launch_template() {
   local harness=$1 kind=${2:-ship}
   local bin_check=$harness
   [ "$harness" = pi-signed ] && bin_check=pi
-  if ! command -v "$bin_check" >/dev/null 2>&1; then
+  # kimi already has its own dedicated preflight (resolve_kimi_binary, called
+  # below) that searches PATH and then its documented off-PATH fallback
+  # location ($HOME/.kimi-code/bin/kimi) with a matching diagnostic. Checking
+  # PATH again here would refuse a fallback-only kimi before that resolver
+  # ever runs, so kimi is exempt from this generic PATH gate.
+  if [ "$harness" != kimi ] && ! command -v "$bin_check" >/dev/null 2>&1; then
     echo "error: harness CLI '$bin_check' not found on PATH. Refusing spawn per captain pre-flight gate. Ask captain for guidance." >&2
     return 1
   fi
