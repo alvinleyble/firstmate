@@ -62,6 +62,18 @@ fi
 "$SCRIPT_DIR/fm-pr-check-migrate.sh" --checks-safe || exit 1
 "$FM_ROOT/bin/fm-guard.sh" || true
 
+# A prior migration attempt for this same id may have left an unresolved
+# obligation quarantined (its check.sh already moved aside, its outcome never
+# reached a terminal record) - the --checks-safe pass above tolerates that
+# without reconciling it, since reconciling here would need the poll this
+# script is about to publish. Once that poll exists, force the full migration
+# below so the obligation resolves against the fresh poll instead of being
+# left to rot until an unrelated future sweep happens to revisit it.
+RECONCILE_OPEN_OBLIGATION=0
+if fm_pr_quarantine_obligation_open "$STATE" "$ID"; then
+  RECONCILE_OPEN_OBLIGATION=1
+fi
+
 # pr_head is recorded only when the forge's CLI can supply it. gh exposes the
 # head commit as a selectable field; plain glab exposes it only inside its JSON
 # output, which would need a JSON processor firstmate does not require, so a
@@ -119,4 +131,11 @@ fm_pr_poll_publish_prepared || {
   echo "error: could not publish PR poll" >&2
   exit 1
 }
+
+if [ "$RECONCILE_OPEN_OBLIGATION" -eq 1 ]; then
+  "$SCRIPT_DIR/fm-pr-check-migrate.sh" || {
+    echo "error: this poll is armed, but a prior migration obligation for this task could not be reconciled" >&2
+    exit 1
+  }
+fi
 printf 'armed: state/%s.check.sh\n' "$ID"
