@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Tear down a finished task: return the treehouse worktree, release the Orca
 # worktree, or retire a secondmate home; kill the recorded runtime endpoint,
-# clear volatile state, refresh/prune the project's clone for PR-based ship
-# tasks, then print a backlog-refresh reminder for ship and scout teardowns
-# (a secondmate teardown prints none, since secondmates are not backlog items).
+# clear volatile state, perform post-landing project cleanup (doc pre-check,
+# Supabase migrations check/push, Edge Function deploy, primary clone sync to
+# default branch), sweep the target project for stale merged local/remote
+# branches and prunable worktree registrations, refresh/prune the project's
+# clone for PR-based ship tasks, then print a backlog-refresh reminder for
+# ship and scout teardowns (a secondmate teardown prints none, since
+# secondmates are not backlog items).
 # REFUSES if the worktree holds work that has not LANDED, because cleanup
 # hard-resets/removes the worktree and kills its processes. Work has landed when it is
 # reachable from any remote-tracking branch (a fork counts as a remote, so
@@ -2096,6 +2100,174 @@ remove_secondmate_registry_entry() {
   return "$rc"
 }
 
+teardown_doc_precheck() {
+  local project=$1 doc
+  [ -n "$project" ] && [ -d "$project" ] || return 0
+  doc="$project/docs/build/project-build-progress.md"
+  if [ -f "$doc" ]; then
+    echo "teardown: found progress tracker: docs/build/project-build-progress.md"
+  else
+    echo "teardown: note: no docs/build/project-build-progress.md found"
+  fi
+}
+
+teardown_supabase_migration_check_and_push() {
+  local project=$1 list_out
+  [ -n "$project" ] && [ -d "$project/supabase/migrations" ] || return 0
+  if ! command -v npx >/dev/null 2>&1; then
+    echo "teardown: npx not found; skipping Supabase database migrations check" >&2
+    return 0
+  fi
+  echo "teardown: checking Supabase database migrations in $project..."
+  if list_out=$(cd "$project" && npx supabase migration list --linked 2>&1); then
+    if printf '%s\n' "$list_out" | grep -q '"remote":""'; then
+      echo "teardown: unapplied Supabase migrations found; pushing to remote..."
+      (cd "$project" && npx supabase db push --linked) || echo "warning: supabase db push failed in $project" >&2
+    else
+      echo "teardown: all Supabase database migrations are up to date on remote"
+    fi
+  else
+    echo "teardown: could not list Supabase migrations in $project (project may not be linked)" >&2
+  fi
+}
+
+teardown_supabase_functions_deploy() {
+  local project=$1 changed_functions fn
+  [ -n "$project" ] && [ -d "$project/supabase/functions" ] || return 0
+  if ! command -v npx >/dev/null 2>&1; then
+    echo "teardown: npx not found; skipping Supabase Edge Functions check" >&2
+    return 0
+  fi
+  echo "teardown: checking Supabase Edge Functions in $project..."
+  changed_functions=$(cd "$project" && git log -n 3 --name-only --pretty=format: 2>/dev/null | grep -E '^supabase/functions/' | cut -d/ -f3 | sort -u | grep -v '^_' || true)
+  if [ -n "$changed_functions" ]; then
+    for fn in $changed_functions; do
+      if [ -d "$project/supabase/functions/$fn" ]; then
+        echo "teardown: deploying updated Supabase Edge Function: $fn..."
+        (cd "$project" && npx supabase functions deploy "$fn" --use-api) || echo "warning: deploy failed for $fn" >&2
+      fi
+    done
+  else
+    echo "teardown: no modified Supabase Edge Functions detected in recent commits"
+  fi
+}
+
+teardown_project_primary_clone_sync() {
+  local project=$1 def_branch
+  [ -n "$project" ] && [ -d "$project/.git" ] || return 0
+  def_branch=$(default_branch) || return 0
+  echo "teardown: syncing primary project clone to $def_branch..."
+  (
+    cd "$project"
+    git checkout "$def_branch" 2>/dev/null || true
+    if git remote get-url origin >/dev/null 2>&1; then
+      git pull origin "$def_branch" 2>/dev/null || true
+      git remote prune origin 2>/dev/null || true
+    fi
+  )
+}
+
+teardown_project_staleness_sweep() {
+  local project=$1 def_branch current_branch worktree_branches
+  local meta_f meta_proj meta_wt wt_branch
+  local -a live_branches live_worktrees
+  local merged_local_branches b
+  local remote_branches origin_b pr_list_out pr_num pr_view_out
+  [ -n "$project" ] && [ -d "$project" ] || return 0
+  git -C "$project" rev-parse --git-dir >/dev/null 2>&1 || return 0
+
+  # Step A: Drop worktree registrations whose directory no longer exists on disk
+  git -C "$project" worktree prune 2>/dev/null || true
+
+  def_branch=$(default_branch) || return 0
+  current_branch=$(git -C "$project" symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+  worktree_branches=$(git -C "$project" worktree list --porcelain 2>/dev/null | sed -n 's#^branch refs/heads/##p')
+
+  # Collect live task branches and worktrees for this project from $STATE
+  live_branches=()
+  live_worktrees=()
+  if [ -d "$STATE" ]; then
+    for meta_f in "$STATE"/*.meta; do
+      [ -f "$meta_f" ] || continue
+      meta_proj=$(fm_meta_get "$meta_f" project)
+      [ -n "$meta_proj" ] || continue
+      if [ -d "$meta_proj" ] && [ "$(canonical_existing_dir "$meta_proj" 2>/dev/null || true)" = "$(canonical_existing_dir "$project" 2>/dev/null || true)" ]; then
+        meta_wt=$(fm_meta_get "$meta_f" worktree)
+        if [ -n "$meta_wt" ] && [ -d "$meta_wt" ]; then
+          live_worktrees+=("$meta_wt")
+          wt_branch=$(git -C "$meta_wt" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+          [ -n "$wt_branch" ] && [ "$wt_branch" != "HEAD" ] && live_branches+=("$wt_branch")
+        fi
+      fi
+    done
+  fi
+
+  # Step B: Sweep local branches fully merged into default branch
+  merged_local_branches=$(git -C "$project" for-each-ref --format='%(refname:short)' --merged "$def_branch" refs/heads 2>/dev/null || true)
+  if [ -n "$merged_local_branches" ]; then
+    while IFS= read -r b; do
+      [ -n "$b" ] || continue
+      [ "$b" != "$def_branch" ] || continue
+      [ "$b" != "main" ] && [ "$b" != "master" ] || continue
+      [ "$b" != "$current_branch" ] || continue
+      if printf '%s\n' "$worktree_branches" | grep -Fxq -- "$b"; then
+        continue
+      fi
+      if [ "${#live_branches[@]}" -gt 0 ] && printf '%s\n' "${live_branches[@]}" | grep -Fxq -- "$b"; then
+        continue
+      fi
+      # Hard Rule 3: Never delete a branch that has any commit not reachable from the default branch
+      if git -C "$project" merge-base --is-ancestor "$b" "$def_branch" 2>/dev/null; then
+        if git -C "$project" branch -d "$b" >/dev/null 2>&1 || git -C "$project" branch -D "$b" >/dev/null 2>&1; then
+          echo "teardown: deleted stale merged local branch: $b"
+        fi
+      fi
+    done <<EOF
+$merged_local_branches
+EOF
+  fi
+
+  # Step C: Remote GitHub branches sweep (via gh-axi)
+  if git -C "$project" remote get-url origin >/dev/null 2>&1 && command -v gh-axi >/dev/null 2>&1; then
+    git -C "$project" fetch origin --prune --quiet 2>/dev/null || true
+    remote_branches=$(git -C "$project" for-each-ref --format='%(refname:short)' refs/remotes/origin/ 2>/dev/null || true)
+    if [ -n "$remote_branches" ]; then
+      while IFS= read -r origin_b; do
+        [ -n "$origin_b" ] || continue
+        b=${origin_b#origin/}
+        [ "$b" != "HEAD" ] || continue
+        [ "$b" != "$def_branch" ] && [ "$b" != "main" ] && [ "$b" != "master" ] || continue
+        [ "$b" != "$current_branch" ] || continue
+        if printf '%s\n' "$worktree_branches" | grep -Fxq -- "$b"; then
+          continue
+        fi
+        if [ "${#live_branches[@]}" -gt 0 ] && printf '%s\n' "${live_branches[@]}" | grep -Fxq -- "$b"; then
+          continue
+        fi
+        # Query gh-axi pr list for PRs matching this head branch
+        if ! pr_list_out=$(cd "$project" && gh-axi pr list --state all --head "$b" --limit 2 2>/dev/null); then
+          continue
+        fi
+        [ -n "$pr_list_out" ] || continue
+        # Extract PR number; ensure exactly one PR was returned
+        pr_num=$(printf '%s\n' "$pr_list_out" | sed -n 's/^[[:space:]]*\([0-9][0-9]*\),.*/\1/p' | head -1)
+        [ -n "$pr_num" ] || continue
+        # Confirm via the PR's merged state before deleting, never guess from branch name alone
+        pr_view_out=$(cd "$project" && gh-axi pr view "$pr_num" 2>/dev/null || true)
+        if printf '%s\n' "$pr_view_out" | grep -Eq '^[[:space:]]*(state:[[:space:]]*[Mm][Ee][Rr][Gg][Ee][Dd]|merged:[[:space:]]*yes)'; then
+          if git -C "$project" push origin --delete "$b" 2>/dev/null; then
+            echo "teardown: deleted stale merged remote branch: $b"
+          else
+            echo "warning: could not delete remote branch origin/$b" >&2
+          fi
+        fi
+      done <<EOF
+$remote_branches
+EOF
+    fi
+  fi
+}
+
 validate_pr_poll_cleanup "$STATE" "$ID" || exit 1
 
 if [ "$KIND" = secondmate ]; then
@@ -2354,6 +2526,15 @@ rm -f "$STATE/$ID.status" "$STATE/$ID.turn-ended" "$STATE/$ID.meta" \
   "$STATE/$ID.kimi-turnend-token" "$STATE/$ID.muse-session" \
   "$STATE/$ID.muse-session-current" \
   "$STATE/.$ID.open-decisions-cursor"
+if [ "$KIND" != scout ] && [ "$KIND" != secondmate ]; then
+  if [ -n "$PROJ" ] && [ -d "$PROJ" ]; then
+    teardown_doc_precheck "$PROJ"
+    teardown_supabase_migration_check_and_push "$PROJ"
+    teardown_supabase_functions_deploy "$PROJ"
+    teardown_project_primary_clone_sync "$PROJ"
+    teardown_project_staleness_sweep "$PROJ"
+  fi
+fi
 if [ "$KIND" != scout ] && [ "$KIND" != secondmate ] && [ "$MODE" != local-only ]; then
   "$FM_ROOT/bin/fm-fleet-sync.sh" "$PROJ" || true
 fi

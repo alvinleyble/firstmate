@@ -1522,7 +1522,7 @@ test_herdr_flat_teardown_refuses_records_on_unparseable_presence() {
 }
 
 assert_herdr_teardown_preflight_refuses_before_changes() {
-  local mode=$1 case_dir log closed rc thlog teardown_bin
+  local mode=$1 case_dir log closed rc thlog teardown_bin test_root=$ROOT
   case_dir=$(make_case "herdr-preflight-$mode")
   write_meta "$case_dir" local-only ship
   configure_flat_herdr_teardown_case "$case_dir"
@@ -1555,10 +1555,11 @@ SH
         rm -f "$case_dir/test-root/bin/backends/herdr.sh.bak"
       fi
       teardown_bin="$case_dir/test-root/bin/fm-teardown.sh"
+      test_root="$case_dir/test-root"
       ;;
   esac
   rc=0
-  FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$case_dir/state" FM_CONFIG_OVERRIDE="$case_dir/config" \
+  FM_ROOT_OVERRIDE="$test_root" FM_STATE_OVERRIDE="$case_dir/state" FM_CONFIG_OVERRIDE="$case_dir/config" \
     FM_FAKE_HERDR_LOG="$log" FM_FAKE_HERDR_CLOSED="$closed" \
     FM_FAKE_HERDR_SESSION_LIST_GARBAGE="$([ "$mode" = unresolvable-lock ] && printf 1 || printf 0)" \
     PATH="$case_dir/fakebin:$PATH" \
@@ -2498,6 +2499,240 @@ EOF
   pass "the run abort and the leaked-process reap both complete before the destructive worktree return"
 }
 
+test_teardown_staleness_sweep_deletes_merged_local_branch() {
+  local case_dir rc
+  case_dir=$(make_case sweep-merged-local)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  # Create an old feature branch merged into main
+  git -C "$case_dir/project" checkout -q -b fm/old-feature main
+  git -C "$case_dir/project" -c user.email=t@t -c user.name=t commit -q --allow-empty -m "old feature"
+  git -C "$case_dir/project" checkout -q main
+  git -C "$case_dir/project" merge -q --no-ff -m "merge old feature" fm/old-feature
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if git -C "$case_dir/project" show-ref --verify --quiet refs/heads/fm/old-feature; then
+    fail "staleness sweep failed to delete fully merged local branch fm/old-feature"
+  fi
+  pass "staleness sweep deletes merged local branch"
+}
+
+test_teardown_staleness_sweep_leaves_unmerged_local_branch_alone() {
+  local case_dir rc
+  case_dir=$(make_case sweep-unmerged-local)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  # Create an unmerged feature branch
+  git -C "$case_dir/project" checkout -q -b fm/unmerged-feature main
+  git -C "$case_dir/project" -c user.email=t@t -c user.name=t commit -q --allow-empty -m "unmerged feature"
+  git -C "$case_dir/project" checkout -q main
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if ! git -C "$case_dir/project" show-ref --verify --quiet refs/heads/fm/unmerged-feature; then
+    fail "staleness sweep incorrectly deleted unmerged local branch fm/unmerged-feature"
+  fi
+  pass "staleness sweep leaves unmerged local branch untouched"
+}
+
+test_teardown_staleness_sweep_leaves_live_task_branch_alone() {
+  local case_dir rc
+  case_dir=$(make_case sweep-live-task-branch)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  # Create branch for another live task
+  git -C "$case_dir/project" checkout -q -b fm/task-live main
+  git -C "$case_dir/project" checkout -q main
+
+  # Record task-live in state
+  fm_write_meta "$case_dir/state/task-live.meta" \
+    "window=firstmate:fm-task-live" \
+    "endpoint_task_id=task-live" \
+    "worktree=$case_dir/wt-live" \
+    "project=$case_dir/project" \
+    "kind=ship" \
+    "mode=local-only"
+  mkdir -p "$case_dir/wt-live"
+  git clone -q "$case_dir/origin.git" "$case_dir/wt-live" 2>/dev/null || true
+  git -C "$case_dir/wt-live" checkout -q -b fm/task-live main 2>/dev/null || true
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if ! git -C "$case_dir/project" show-ref --verify --quiet refs/heads/fm/task-live; then
+    fail "staleness sweep incorrectly deleted live task branch fm/task-live"
+  fi
+  pass "staleness sweep leaves live task branch untouched"
+}
+
+test_teardown_staleness_sweep_leaves_worktree_checked_out_branch_alone() {
+  local case_dir rc
+  case_dir=$(make_case sweep-wt-checked-out)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  # Add another worktree on a feature branch
+  git -C "$case_dir/project" worktree add -q -b fm/checked-out "$case_dir/wt2" main
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if ! git -C "$case_dir/project" show-ref --verify --quiet refs/heads/fm/checked-out; then
+    fail "staleness sweep incorrectly deleted checked out worktree branch fm/checked-out"
+  fi
+  pass "staleness sweep leaves worktree-checked-out branch untouched"
+}
+
+test_teardown_staleness_sweep_prunes_missing_worktree_registration() {
+  local case_dir rc
+  case_dir=$(make_case sweep-prune-wt)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  # Add a worktree then delete its directory
+  git -C "$case_dir/project" worktree add -q -b fm/wt-stale "$case_dir/wt-stale" main
+  rm -rf "$case_dir/wt-stale"
+
+  if ! git -C "$case_dir/project" worktree list --porcelain | grep -q "wt-stale"; then
+    fail "prune-wt setup: expected prunable worktree to be listed"
+  fi
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if git -C "$case_dir/project" worktree list --porcelain | grep -q "wt-stale"; then
+    fail "staleness sweep failed to prune missing worktree registration"
+  fi
+  pass "staleness sweep prunes missing worktree registration"
+}
+
+test_teardown_staleness_sweep_leaves_dirty_worktree_alone() {
+  local case_dir rc
+  case_dir=$(make_case sweep-dirty-wt)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  # Add another worktree and make it dirty
+  git -C "$case_dir/project" worktree add -q -b fm/wt-dirty "$case_dir/wt-dirty" main
+  printf 'uncommitted changes\n' > "$case_dir/wt-dirty/uncommitted.txt"
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if [ ! -f "$case_dir/wt-dirty/uncommitted.txt" ]; then
+    fail "staleness sweep modified or removed dirty worktree directory"
+  fi
+  pass "staleness sweep leaves dirty worktree untouched"
+}
+
+test_teardown_staleness_sweep_deletes_merged_remote_branch() {
+  local case_dir rc
+  case_dir=$(make_case sweep-merged-remote)
+  write_meta "$case_dir" no-mistakes ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  # Create remote branch on origin
+  git -C "$case_dir/project" checkout -q -b fm/remote-merged main
+  git -C "$case_dir/project" push -q origin fm/remote-merged
+  git -C "$case_dir/project" checkout -q main
+
+  # Mock gh-axi to report fm/remote-merged PR as merged
+  cat > "$case_dir/fakebin/gh-axi" <<'SH'
+#!/usr/bin/env bash
+case "${1:-} ${2:-}" in
+  "pr list")
+    case " $* " in
+      *"--head fm/remote-merged"*)
+        printf '%s\n' "count: 1 (showing first 1)" "pull_requests[1]{number,state}:" "  42,merged" ; exit 0 ;;
+      *)
+        printf '%s\n' "count: 0 (showing first 0)" "pull_requests[]: []" ; exit 0 ;;
+    esac
+    ;;
+  "pr view")
+    printf '%s\n' "pull_request:" "  number: 42" "  state: merged" "  merged: yes" ; exit 0 ;;
+esac
+exit 0
+SH
+  chmod +x "$case_dir/fakebin/gh-axi"
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if git -C "$case_dir/origin.git" show-ref --verify --quiet refs/heads/fm/remote-merged; then
+    fail "staleness sweep failed to delete merged remote branch fm/remote-merged"
+  fi
+  pass "staleness sweep deletes merged remote branch via gh-axi"
+}
+
+test_teardown_staleness_sweep_leaves_unmerged_remote_branch_alone() {
+  local case_dir rc
+  case_dir=$(make_case sweep-unmerged-remote)
+  write_meta "$case_dir" no-mistakes ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  # Create remote branch on origin
+  git -C "$case_dir/project" checkout -q -b fm/remote-open main
+  git -C "$case_dir/project" push -q origin fm/remote-open
+  git -C "$case_dir/project" checkout -q main
+
+  # Mock gh-axi to report fm/remote-open PR as open (not merged)
+  cat > "$case_dir/fakebin/gh-axi" <<'SH'
+#!/usr/bin/env bash
+case "${1:-} ${2:-}" in
+  "pr list")
+    case " $* " in
+      *"--head fm/remote-open"*)
+        printf '%s\n' "count: 1 (showing first 1)" "pull_requests[1]{number,state}:" "  43,open" ; exit 0 ;;
+      *)
+        printf '%s\n' "count: 0 (showing first 0)" "pull_requests[]: []" ; exit 0 ;;
+    esac
+    ;;
+  "pr view")
+    printf '%s\n' "pull_request:" "  number: 43" "  state: open" "  merged: no" ; exit 0 ;;
+esac
+exit 0
+SH
+  chmod +x "$case_dir/fakebin/gh-axi"
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if ! git -C "$case_dir/origin.git" show-ref --verify --quiet refs/heads/fm/remote-open; then
+    fail "staleness sweep incorrectly deleted open remote branch fm/remote-open"
+  fi
+  pass "staleness sweep leaves unmerged remote branch untouched"
+}
+
 test_local_only_fork_remote_allows
 test_teardown_prompts_tasks_axi_done_when_compatible
 test_teardown_manual_backend_prompts_hand_edit_even_when_tasks_axi_present
@@ -2555,3 +2790,11 @@ test_process_spawned_during_grace_is_reaped_on_later_pass
 test_persistent_scan_refuses_after_bounded_retries
 test_process_exit_during_identity_lookup_does_not_refuse
 test_run_abort_precedes_process_reap_precedes_worktree_removal
+test_teardown_staleness_sweep_deletes_merged_local_branch
+test_teardown_staleness_sweep_leaves_unmerged_local_branch_alone
+test_teardown_staleness_sweep_leaves_live_task_branch_alone
+test_teardown_staleness_sweep_leaves_worktree_checked_out_branch_alone
+test_teardown_staleness_sweep_prunes_missing_worktree_registration
+test_teardown_staleness_sweep_leaves_dirty_worktree_alone
+test_teardown_staleness_sweep_deletes_merged_remote_branch
+test_teardown_staleness_sweep_leaves_unmerged_remote_branch_alone
