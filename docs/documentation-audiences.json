@@ -185,6 +185,10 @@
       "audience": "agent-runtime"
     },
     {
+      "path": ".agents/skills/wrapup/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
       "path": "AGENTS.md",
       "audience": "agent-runtime"
     },
