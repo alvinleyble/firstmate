@@ -2120,7 +2120,7 @@ teardown_supabase_migration_check_and_push() {
   fi
   echo "teardown: checking Supabase database migrations in $project..."
   if list_out=$(cd "$project" && npx supabase migration list --linked 2>&1); then
-    if printf '%s\n' "$list_out" | grep -q '"remote":""'; then
+    if printf '%s\n' "$list_out" | grep -Eq '^[[:space:]]*[0-9]{14}[[:space:]]*\|[[:space:]]*\|'; then
       echo "teardown: unapplied Supabase migrations found; pushing to remote..."
       (cd "$project" && npx supabase db push --linked) || echo "warning: supabase db push failed in $project" >&2
     else
@@ -2529,9 +2529,13 @@ rm -f "$STATE/$ID.status" "$STATE/$ID.turn-ended" "$STATE/$ID.meta" \
 if [ "$KIND" != scout ] && [ "$KIND" != secondmate ]; then
   if [ -n "$PROJ" ] && [ -d "$PROJ" ]; then
     teardown_doc_precheck "$PROJ"
-    teardown_supabase_migration_check_and_push "$PROJ"
-    teardown_supabase_functions_deploy "$PROJ"
     teardown_project_primary_clone_sync "$PROJ"
+    if [ "${FM_TEARDOWN_SKIP_SUPABASE:-0}" != 1 ]; then
+      teardown_supabase_migration_check_and_push "$PROJ"
+      teardown_supabase_functions_deploy "$PROJ"
+    else
+      echo "teardown: FM_TEARDOWN_SKIP_SUPABASE=1; skipping Supabase migration and function deploy checks"
+    fi
     teardown_project_staleness_sweep "$PROJ"
   fi
 fi
