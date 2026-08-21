@@ -228,6 +228,9 @@ PR-based task merges go through `bin/fm-pr-merge.sh`, which records `pr=` and an
 The helper requires a full `https://github.com/<owner>/<repo>/pull/<n>` URL, invokes `gh-axi pr merge <n> --repo <owner>/<repo>`, defaults to `--squash`, preserves explicit merge-method flags, and rejects malformed URLs or repo override flags before recording merge state; a well-formed GitLab merge request URL (see [docs/gitlab-merge-watch.md](gitlab-merge-watch.md)) is refused too, explicitly, rather than sent to the wrong forge.
 Teardown is fail-closed for ship worktrees: dirty worktrees refuse, and committed work must be landed before the worktree is returned.
 [`bin/fm-teardown.sh`](../bin/fm-teardown.sh)'s header owns the landed-work proofs, PR-discovery fallback, and stale-lock recovery procedure.
+After a ship teardown clears those proofs, the same script runs that project's post-landing cleanup: it reports whether the project keeps a `docs/build/project-build-progress.md` tracker, returns the primary clone to the default branch and prunes its stale `origin` tracking refs, pushes pending Supabase database migrations and deploys Supabase Edge Functions touched by the last few commits when the project carries a `supabase/` directory, then sweeps the project repository for prunable worktree registrations and merged branches.
+That sweep deletes a local branch only when it is not the default branch, is checked out in no worktree, backs no live task recorded in `state/`, and is fully reachable from the default branch; it deletes a remote branch only after `gh-axi` confirms that branch's own pull request is merged, never from the branch name alone.
+Scout and secondmate teardowns skip the whole pass, and [configuration.md](configuration.md#environment-variables) owns the switch that skips only the Supabase steps.
 
 ## Optional Relay
 
