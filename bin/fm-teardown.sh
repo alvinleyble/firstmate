@@ -544,15 +544,19 @@ elif [ "$FORCE" != "--force" ] && fm_pf_relay_active "$FM_HOME"; then
   PUBLIC_FOLLOWUP_RELAY_ACTIVE=1
 fi
 
-default_branch() {
-  local ref branch
-  ref=$(git -C "$PROJ" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)
+# Name of <repo>'s default branch, defaulting to the primary project checkout
+# when no repo is given. Callers that operate on an explicitly passed repo must
+# pass it here too, so the branch name is always resolved against the same repo
+# the caller is inspecting.
+default_branch() { # [<repo>]
+  local dir=${1:-$PROJ} ref branch
+  ref=$(git -C "$dir" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)
   if [ -n "$ref" ]; then
     echo "${ref#origin/}"
     return 0
   fi
   for branch in main master; do
-    if git -C "$PROJ" show-ref --verify --quiet "refs/heads/$branch"; then
+    if git -C "$dir" show-ref --verify --quiet "refs/heads/$branch"; then
       echo "$branch"
       return 0
     fi
@@ -770,32 +774,69 @@ $unpushed
 EOF
 }
 
-# Is <commit>'s PR merged, with <commit> contained in that PR? Resolves the PR
-# from <pr-url> first (when given, e.g. the current task's own recorded pr=),
-# then from <branch>'s name, and asks GitHub for both the PR state and head.
-# Returns non-zero when the PR is not merged, <commit> is not contained in the
-# PR head, no PR is found, or any gh error occurs - the caller then falls back
-# to the content check.
+# Is <commit>'s PR merged INTO THE DEFAULT BRANCH, with <commit> contained in
+# that PR? Resolves the PR from <pr-url> first (when given, e.g. the current
+# task's own recorded pr=), then from <branch>'s name, and asks GitHub for the
+# PR state, head and base. Fails closed on the base: a PR merged into some
+# other branch (a stacked or release-branch PR) proves nothing about the
+# default branch, so a base that is missing or is not the default branch counts
+# as not-merged. Returns non-zero when the PR is not merged, was merged
+# elsewhere, <commit> is not contained in the PR head, no PR is found, or any
+# gh error occurs - the caller then falls back to the content check.
 pr_is_merged() { # <repo> <branch> <commit> [<pr-url>]
-  local repo=$1 branch=$2 commit=$3 pr_url=${4:-} target view state head
+  local repo=$1 branch=$2 commit=$3 pr_url=${4:-} target view rest state head base def_name
   if [ -n "$pr_url" ]; then
     target=$pr_url
   else
     target=$(pr_number_from_branch "$repo" "$branch") || return 1
   fi
   [ -n "$target" ] || return 1
-  view=$(cd "$repo" && gh pr view "$target" --json state,headRefOid -q '.state + "\t" + .headRefOid' 2>/dev/null) || return 1
+  view=$(cd "$repo" && gh pr view "$target" --json state,headRefOid,baseRefName -q '.state + "\t" + .headRefOid + "\t" + .baseRefName' 2>/dev/null) || return 1
   state=${view%%$'\t'*}
-  head=${view#*$'\t'}
   [ "$state" != "$view" ] || return 1
+  rest=${view#*$'\t'}
+  head=${rest%%$'\t'*}
+  [ "$head" != "$rest" ] || return 1
+  base=${rest#*$'\t'}
   case "$state" in
     MERGED|merged) ;;
     *) return 1 ;;
   esac
   [ -n "$head" ] || return 1
+  [ -n "$base" ] || return 1
+  def_name=$(default_branch "$repo") || return 1
+  [ "$base" = "$def_name" ] || return 1
   ensure_commit_object "$repo" "$target" "$head" || return 1
   git -C "$repo" merge-base --is-ancestor "$commit" "$head" 2>/dev/null && return 0
   unpushed_patches_are_in_pr_head "$repo" "$commit" "$head"
+}
+
+# Refs already fetched (or already known unfetchable) in this teardown run, so a
+# per-branch loop pays for the network round trip once instead of once per branch.
+FM_FETCHED_DEFAULT_REFS=""
+
+# Fetch <repo>'s default branch <name> from origin, at most once per repo per run.
+# Keyed on the shared git dir so a project and its worktrees - which resolve to the
+# same remote-tracking refs - share the single fetch. Returns non-zero when the
+# fetch failed, and remembers that too, so an offline run does not retry per branch.
+fetch_default_ref_once() { # <repo> <name>
+  local repo=$1 name=$2 key
+  key=$(git -C "$repo" rev-parse --git-common-dir 2>/dev/null) || key=$repo
+  case "$key" in
+    /*) ;;
+    *) key="$repo/$key" ;;
+  esac
+  key="$key|$name"
+  case "$FM_FETCHED_DEFAULT_REFS" in
+    *"<ok $key>"*) return 0 ;;
+    *"<fail $key>"*) return 1 ;;
+  esac
+  if git -C "$repo" fetch --quiet origin "+refs/heads/$name:refs/remotes/origin/$name" >/dev/null 2>&1; then
+    FM_FETCHED_DEFAULT_REFS="$FM_FETCHED_DEFAULT_REFS<ok $key>"
+    return 0
+  fi
+  FM_FETCHED_DEFAULT_REFS="$FM_FETCHED_DEFAULT_REFS<fail $key>"
+  return 1
 }
 
 # Is <commit>'s content already present in the up-to-date default branch? Fetches
@@ -810,9 +851,9 @@ pr_is_merged() { # <repo> <branch> <commit> [<pr-url>]
 # (no default ref, or a merge conflict), so the caller refuses rather than guesses.
 content_in_default() { # <repo> <commit>
   local repo=$1 commit=$2 name ref default_tree merged_tree
-  name=$(default_branch) || return 1
+  name=$(default_branch "$repo") || return 1
   if git -C "$repo" remote get-url origin >/dev/null 2>&1; then
-    git -C "$repo" fetch --quiet origin "+refs/heads/$name:refs/remotes/origin/$name" >/dev/null 2>&1 || return 1
+    fetch_default_ref_once "$repo" "$name" || return 1
     ref="refs/remotes/origin/$name"
   elif git -C "$repo" rev-parse --quiet --verify "refs/heads/$name" >/dev/null 2>&1; then
     ref="refs/heads/$name"
@@ -827,14 +868,17 @@ content_in_default() { # <repo> <commit>
 }
 
 # Has <commit> actually LANDED, though it may not be reachable from any
-# remote-tracking branch or ancestor of the default branch? True when a merged
-# PR proves it is contained in the PR head, OR its content is already in the
-# default branch (fallback, which also covers the no-PR, gh-error, and
-# squash-merge cases). False only for genuinely unlanded work.
+# remote-tracking branch or ancestor of the default branch? True when its content
+# is already in the default branch (which covers the squash-merge case), OR a PR
+# merged into the default branch proves it is contained in that PR's head (which
+# covers the locally-rewritten-but-unpushed tip). False only for genuinely
+# unlanded work. The content check runs first because it is the cheaper of the
+# two - one fetch shared across the whole run, then purely local git - whereas
+# the PR check costs up to two GitHub API round trips per call.
 work_is_landed() { # <repo> <branch> <commit> [<pr-url>]
   local repo=$1 branch=$2 commit=$3 pr_url=${4:-}
-  pr_is_merged "$repo" "$branch" "$commit" "$pr_url" && return 0
-  content_in_default "$repo" "$commit"
+  content_in_default "$repo" "$commit" && return 0
+  pr_is_merged "$repo" "$branch" "$commit" "$pr_url"
 }
 
 backlog_refresh_reminder() {

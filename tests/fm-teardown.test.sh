@@ -255,9 +255,10 @@ land_on_origin_main() {
   rm -rf "$tmp"
 }
 
-# Override GitHub lookups to report PR 7 as merged with the supplied head.
+# Override GitHub lookups to report PR 7 as merged with the supplied head, and
+# with the supplied base branch (default: main, the fixture's default branch).
 add_gh_pr_merged_for_head() {
-  local case_dir=$1 head=$2
+  local case_dir=$1 head=$2 base=${3:-main}
   cat > "$case_dir/fakebin/gh-axi" <<'SH'
 #!/usr/bin/env bash
 case "${1:-} ${2:-}" in
@@ -273,6 +274,7 @@ SH
 case "\${1:-} \${2:-}" in
   "pr view")
     case " \$* " in
+      *"state,headRefOid,baseRefName"*) printf '%s\t%s\t%s\n' 'MERGED' '$head' '$base' ; exit 0 ;;
       *"state,headRefOid"*) printf '%s\t%s\n' 'MERGED' '$head' ; exit 0 ;;
       *"headRefOid"*) printf '%s\n' '$head' ; exit 0 ;;
     esac
@@ -713,6 +715,29 @@ test_squash_merged_branch_deleted_allows() {
   expect_code 0 "$rc" "squash-merged: teardown should succeed when the PR is merged"
   ! grep -q REFUSED "$case_dir/stderr" || fail "squash-merged: teardown printed a REFUSED line"
   pass "squash-merged + deleted-branch worktree (PR merged) is torn down (the fix)"
+}
+
+test_merged_pr_into_non_default_base_refuses() {
+  local case_dir rc pr_head
+  case_dir=$(make_case pr-merged-elsewhere)
+  write_meta "$case_dir" no-mistakes ship
+  # The PR is MERGED and contains HEAD, but it was merged into a release branch,
+  # not into main - a stacked/release-branch workflow. Nothing proves the content
+  # reached the default branch (origin/main never gained it), so the merged-PR
+  # signal must not count and teardown must refuse.
+  wt_commit_file "$case_dir" feature.txt hello "add feature"
+  append_pr_meta_for_current_head "$case_dir"
+  pr_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  add_gh_pr_merged_for_head "$case_dir" "$pr_head" release/1.x
+
+  set +e
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "pr-merged-elsewhere: teardown should refuse a PR merged into a non-default base"
+  grep -q REFUSED "$case_dir/stderr" || fail "pr-merged-elsewhere: no REFUSED line in stderr"
+  pass "PR merged into a non-default base branch does not count as landed (fail-safe)"
 }
 
 test_squash_merged_pr_allows_when_head_ancestor_of_pr_head() {
@@ -2823,6 +2848,7 @@ test_herdr_projection_teardown_retires_journal_only_after_confirmed_close
 test_herdr_projection_teardown_retains_journal_when_close_unconfirmed
 test_herdr_projection_teardown_surfaces_restore_failure_without_blocking_cleanup
 test_squash_merged_branch_deleted_allows
+test_merged_pr_into_non_default_base_refuses
 test_squash_merged_pr_allows_when_head_ancestor_of_pr_head
 test_no_pr_recorded_discovers_merged_pr_by_branch_allows
 test_squash_merged_pr_allows_replayed_unpushed_patch
