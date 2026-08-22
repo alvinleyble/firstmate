@@ -2805,8 +2805,44 @@ test_teardown_staleness_sweep_leaves_dirty_worktree_alone() {
   pass "staleness sweep leaves dirty worktree untouched"
 }
 
+# Mock the GitHub lookups a remote-branch sweep candidate needs: gh-axi resolves
+# the PR number from the head branch, and gh reports that PR's state, head and
+# base - the three facts pr_is_merged() decides on. Every other branch gets "no
+# PR". Args: case_dir branch pr_num state head [base]
+add_remote_branch_pr_mocks() {
+  local case_dir=$1 branch=$2 pr_num=$3 state=$4 head=$5 base=${6:-main}
+  cat > "$case_dir/fakebin/gh-axi" <<SH
+#!/usr/bin/env bash
+case "\${1:-} \${2:-}" in
+  "pr list")
+    case " \$* " in
+      *"--head $branch"*)
+        printf '%s\n' "count: 1 (showing first 1)" "pull_requests[1]{number,state}:" "  $pr_num,$state" ; exit 0 ;;
+      *)
+        printf '%s\n' "count: 0 (showing first 0)" "pull_requests[]: []" ; exit 0 ;;
+    esac
+    ;;
+esac
+exit 0
+SH
+  cat > "$case_dir/fakebin/gh" <<SH
+#!/usr/bin/env bash
+case "\${1:-} \${2:-}" in
+  "pr view")
+    case " \$* " in
+      *" $pr_num "*)
+        printf '%s\t%s\t%s\n' '$state' '$head' '$base' ; exit 0 ;;
+    esac
+    ;;
+esac
+echo "error: pull request not found" >&2
+exit 1
+SH
+  chmod +x "$case_dir/fakebin/gh-axi" "$case_dir/fakebin/gh"
+}
+
 test_teardown_staleness_sweep_deletes_merged_remote_branch() {
-  local case_dir rc
+  local case_dir rc branch_head
   case_dir=$(make_case sweep-merged-remote)
   write_meta "$case_dir" no-mistakes ship
   wt_commit "$case_dir" "main work"
@@ -2817,25 +2853,11 @@ test_teardown_staleness_sweep_deletes_merged_remote_branch() {
   git -C "$case_dir/project" checkout -q -b fm/remote-merged main
   git -C "$case_dir/project" push -q origin fm/remote-merged
   git -C "$case_dir/project" checkout -q main
+  branch_head=$(git -C "$case_dir/project" rev-parse refs/heads/fm/remote-merged)
 
-  # Mock gh-axi to report fm/remote-merged PR as merged
-  cat > "$case_dir/fakebin/gh-axi" <<'SH'
-#!/usr/bin/env bash
-case "${1:-} ${2:-}" in
-  "pr list")
-    case " $* " in
-      *"--head fm/remote-merged"*)
-        printf '%s\n' "count: 1 (showing first 1)" "pull_requests[1]{number,state}:" "  42,merged" ; exit 0 ;;
-      *)
-        printf '%s\n' "count: 0 (showing first 0)" "pull_requests[]: []" ; exit 0 ;;
-    esac
-    ;;
-  "pr view")
-    printf '%s\n' "pull_request:" "  number: 42" "  state: merged" "  merged: yes" ; exit 0 ;;
-esac
-exit 0
-SH
-  chmod +x "$case_dir/fakebin/gh-axi"
+  # PR 42 for fm/remote-merged: MERGED, into the default branch, with the
+  # branch tip contained in its head - the only shape that authorizes deletion.
+  add_remote_branch_pr_mocks "$case_dir" fm/remote-merged 42 MERGED "$branch_head" main
 
   rc=0
   run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
@@ -2848,7 +2870,7 @@ SH
 }
 
 test_teardown_staleness_sweep_leaves_unmerged_remote_branch_alone() {
-  local case_dir rc
+  local case_dir rc branch_head
   case_dir=$(make_case sweep-unmerged-remote)
   write_meta "$case_dir" no-mistakes ship
   wt_commit "$case_dir" "main work"
@@ -2860,24 +2882,9 @@ test_teardown_staleness_sweep_leaves_unmerged_remote_branch_alone() {
   git -C "$case_dir/project" push -q origin fm/remote-open
   git -C "$case_dir/project" checkout -q main
 
-  # Mock gh-axi to report fm/remote-open PR as open (not merged)
-  cat > "$case_dir/fakebin/gh-axi" <<'SH'
-#!/usr/bin/env bash
-case "${1:-} ${2:-}" in
-  "pr list")
-    case " $* " in
-      *"--head fm/remote-open"*)
-        printf '%s\n' "count: 1 (showing first 1)" "pull_requests[1]{number,state}:" "  43,open" ; exit 0 ;;
-      *)
-        printf '%s\n' "count: 0 (showing first 0)" "pull_requests[]: []" ; exit 0 ;;
-    esac
-    ;;
-  "pr view")
-    printf '%s\n' "pull_request:" "  number: 43" "  state: open" "  merged: no" ; exit 0 ;;
-esac
-exit 0
-SH
-  chmod +x "$case_dir/fakebin/gh-axi"
+  # PR 43 for fm/remote-open is OPEN, so nothing proves the branch landed.
+  branch_head=$(git -C "$case_dir/project" rev-parse refs/heads/fm/remote-open)
+  add_remote_branch_pr_mocks "$case_dir" fm/remote-open 43 OPEN "$branch_head" main
 
   rc=0
   run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
@@ -2887,6 +2894,39 @@ SH
     fail "staleness sweep incorrectly deleted open remote branch fm/remote-open"
   fi
   pass "staleness sweep leaves unmerged remote branch untouched"
+}
+
+test_teardown_staleness_sweep_keeps_remote_branch_merged_into_non_default_base() {
+  local case_dir rc branch_head
+  case_dir=$(make_case sweep-remote-non-default-base)
+  write_meta "$case_dir" no-mistakes ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  git -C "$case_dir/project" checkout -q -b fm/remote-stacked main
+  printf 'stacked work\n' > "$case_dir/project/stacked.txt"
+  git -C "$case_dir/project" add stacked.txt
+  git -C "$case_dir/project" -c user.email=t@t -c user.name=t commit -q -m "stacked work"
+  git -C "$case_dir/project" push -q origin fm/remote-stacked
+  git -C "$case_dir/project" checkout -q main
+  branch_head=$(git -C "$case_dir/project" rev-parse refs/heads/fm/remote-stacked)
+
+  # PR 44 IS merged, but into another feature branch - a stacked PR. Nothing
+  # proves the content reached the default branch, so the remote branch must
+  # survive and the sweep must say why rather than deleting the last copy.
+  add_remote_branch_pr_mocks "$case_dir" fm/remote-stacked 44 MERGED "$branch_head" feature/base
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if ! git -C "$case_dir/origin.git" show-ref --verify --quiet refs/heads/fm/remote-stacked; then
+    fail "staleness sweep deleted a remote branch whose PR merged into a non-default base"
+  fi
+  assert_grep "keeping remote branch origin/fm/remote-stacked" "$case_dir/stdout" \
+    "sweep-remote-non-default-base: no keep-and-report line for the non-default-base PR"
+  pass "staleness sweep keeps and reports a remote branch whose PR merged into a non-default base"
 }
 
 test_local_only_fork_remote_allows
@@ -2959,3 +2999,4 @@ test_teardown_staleness_sweep_prunes_missing_worktree_registration
 test_teardown_staleness_sweep_leaves_dirty_worktree_alone
 test_teardown_staleness_sweep_deletes_merged_remote_branch
 test_teardown_staleness_sweep_leaves_unmerged_remote_branch_alone
+test_teardown_staleness_sweep_keeps_remote_branch_merged_into_non_default_base

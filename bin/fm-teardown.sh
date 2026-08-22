@@ -782,7 +782,10 @@ EOF
 # default branch, so a base that is missing or is not the default branch counts
 # as not-merged. Returns non-zero when the PR is not merged, was merged
 # elsewhere, <commit> is not contained in the PR head, no PR is found, or any
-# gh error occurs - the caller then falls back to the content check.
+# gh error occurs - the caller then falls back to the content check. Status 2
+# distinguishes the one case a caller may want to report out loud: the PR IS
+# merged, but its base does not prove the default branch (missing, unreadable,
+# or some other branch). Every other failure returns 1.
 pr_is_merged() { # <repo> <branch> <commit> [<pr-url>]
   local repo=$1 branch=$2 commit=$3 pr_url=${4:-} target view rest state head base def_name
   if [ -n "$pr_url" ]; then
@@ -803,9 +806,9 @@ pr_is_merged() { # <repo> <branch> <commit> [<pr-url>]
     *) return 1 ;;
   esac
   [ -n "$head" ] || return 1
-  [ -n "$base" ] || return 1
-  def_name=$(default_branch "$repo") || return 1
-  [ "$base" = "$def_name" ] || return 1
+  [ -n "$base" ] || return 2
+  def_name=$(default_branch "$repo") || return 2
+  [ "$base" = "$def_name" ] || return 2
   ensure_commit_object "$repo" "$target" "$head" || return 1
   git -C "$repo" merge-base --is-ancestor "$commit" "$head" 2>/dev/null && return 0
   unpushed_patches_are_in_pr_head "$repo" "$commit" "$head"
@@ -874,11 +877,24 @@ content_in_default() { # <repo> <commit>
 # covers the locally-rewritten-but-unpushed tip). False only for genuinely
 # unlanded work. The content check runs first because it is the cheaper of the
 # two - one fetch shared across the whole run, then purely local git - whereas
-# the PR check costs up to two GitHub API round trips per call.
+# the PR check costs up to two GitHub API round trips per call. Publishes which
+# arm decided in FM_WORK_LANDED_VIA (content|pr, empty when not landed) so a
+# caller that also needs the PR verdict reuses it instead of paying for the same
+# GitHub round trips twice.
+FM_WORK_LANDED_VIA=""
+
 work_is_landed() { # <repo> <branch> <commit> [<pr-url>]
   local repo=$1 branch=$2 commit=$3 pr_url=${4:-}
-  content_in_default "$repo" "$commit" && return 0
-  pr_is_merged "$repo" "$branch" "$commit" "$pr_url"
+  FM_WORK_LANDED_VIA=""
+  if content_in_default "$repo" "$commit"; then
+    FM_WORK_LANDED_VIA="content"
+    return 0
+  fi
+  if pr_is_merged "$repo" "$branch" "$commit" "$pr_url"; then
+    FM_WORK_LANDED_VIA="pr"
+    return 0
+  fi
+  return 1
 }
 
 backlog_refresh_reminder() {
@@ -2222,8 +2238,8 @@ teardown_project_staleness_sweep() {
   local project=$1 def_branch current_branch worktree_branches
   local meta_f meta_proj meta_wt wt_branch
   local -a live_branches live_worktrees
-  local all_local_branches b branch_commit landed
-  local remote_branches origin_b pr_list_out pr_num pr_view_out
+  local all_local_branches b branch_commit landed landed_via
+  local remote_branches origin_b remote_commit pr_rc
   [ -n "$project" ] && [ -d "$project" ] || return 0
   git -C "$project" rev-parse --git-dir >/dev/null 2>&1 || return 0
 
@@ -2282,16 +2298,19 @@ teardown_project_staleness_sweep() {
       fi
       branch_commit=$(git -C "$project" rev-parse --verify "refs/heads/$b" 2>/dev/null) || continue
       landed=0
+      landed_via=
       if git -C "$project" merge-base --is-ancestor "$branch_commit" "$def_branch" 2>/dev/null; then
         landed=1
+        landed_via="ancestry"
       elif work_is_landed "$project" "$b" "$branch_commit" ""; then
         landed=1
+        landed_via=$FM_WORK_LANDED_VIA
       fi
       [ "$landed" -eq 1 ] || continue
       case "$b" in
         fm/*) ;;
         *)
-          if ! pr_is_merged "$project" "$b" "$branch_commit" ""; then
+          if [ "$landed_via" != "pr" ] && ! pr_is_merged "$project" "$b" "$branch_commit" ""; then
             echo "teardown: local branch $b appears fully landed in $def_branch but is not a task branch; leaving it alone (safe to remove by hand with: git -C \"$project\" branch -D \"$b\")"
             continue
           fi
@@ -2325,17 +2344,22 @@ EOF
         if [ "${#live_branches[@]}" -gt 0 ] && printf '%s\n' "${live_branches[@]}" | grep -Fxq -- "$b"; then
           continue
         fi
-        # Query gh-axi pr list for PRs matching this head branch
-        if ! pr_list_out=$(cd "$project" && gh-axi pr list --state all --head "$b" --limit 2 2>/dev/null); then
+        # Confirm the branch's PR is merged INTO THE DEFAULT BRANCH before
+        # deleting, never guess from branch name or bare merged state alone: a
+        # stacked PR merged into another feature branch proves nothing about the
+        # default branch. Decided by the same pr_is_merged() the worktree check
+        # and Step B use, so the two sweeps cannot drift apart on what "merged"
+        # means. Status 2 is the reportable case (merged, but its base is
+        # missing, unreadable, or not the default branch); every other non-zero
+        # means no single merged PR was found at all, which stays silent.
+        remote_commit=$(git -C "$project" rev-parse --verify "refs/remotes/$origin_b" 2>/dev/null) || continue
+        pr_rc=0
+        pr_is_merged "$project" "$b" "$remote_commit" "" || pr_rc=$?
+        if [ "$pr_rc" -eq 2 ]; then
+          echo "teardown: keeping remote branch origin/$b: its merged PR's base branch is missing, unreadable, or is not $def_branch"
           continue
         fi
-        [ -n "$pr_list_out" ] || continue
-        # Extract PR number; ensure exactly one PR was returned
-        pr_num=$(printf '%s\n' "$pr_list_out" | sed -n 's/^[[:space:]]*\([0-9][0-9]*\),.*/\1/p' | head -1)
-        [ -n "$pr_num" ] || continue
-        # Confirm via the PR's merged state before deleting, never guess from branch name alone
-        pr_view_out=$(cd "$project" && gh-axi pr view "$pr_num" 2>/dev/null || true)
-        if printf '%s\n' "$pr_view_out" | grep -Eq '^[[:space:]]*(state:[[:space:]]*[Mm][Ee][Rr][Gg][Ee][Dd]|merged:[[:space:]]*yes)'; then
+        if [ "$pr_rc" -eq 0 ]; then
           if git -C "$project" push origin --delete "$b" 2>/dev/null; then
             echo "teardown: deleted stale merged remote branch: $b"
           else
