@@ -21,7 +21,7 @@ Drive the post-landing merge, project cleanup, staleness sweep, and clean state 
 ## 2. Land the change
 
 1. If the PR is already merged on GitHub or landed on the default branch, proceed directly to cleanup.
-2. Otherwise, merge the PR using `bin/fm-pr-merge.sh <task-id> <pr-url> -- --squash --delete-branch`.
+2. Otherwise, merge the PR using `bin/fm-pr-merge.sh <task-id> <pr-url> -- --merge --delete-branch`.
 3. If `fm-pr-merge.sh` returns non-zero, verify whether the PR was already merged before treating it as an error.
 
 ## 3. Post-landing cleanup and repo staleness sweep
