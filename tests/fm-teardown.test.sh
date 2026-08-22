@@ -2531,9 +2531,17 @@ test_teardown_staleness_sweep_leaves_unmerged_local_branch_alone() {
   git -C "$case_dir/wt" push -q origin fm/task-x1:main
   git -C "$case_dir/project" fetch -q origin
 
-  # Create an unmerged feature branch
+  # Create an unmerged feature branch with a REAL content change. An empty
+  # commit would not exercise this test's actual contract: Step B's
+  # squash-safe content check (content_in_default) correctly treats a
+  # content-identical tree as landed regardless of ancestry, so an
+  # --allow-empty commit - whose tree trivially equals main's - would get
+  # swept too, for the same reason a genuinely landed squash commit does.
+  # The branch worth preserving here is one with a real, undelivered change.
   git -C "$case_dir/project" checkout -q -b fm/unmerged-feature main
-  git -C "$case_dir/project" -c user.email=t@t -c user.name=t commit -q --allow-empty -m "unmerged feature"
+  printf 'still cooking\n' > "$case_dir/project/unmerged-feature.txt"
+  git -C "$case_dir/project" add unmerged-feature.txt
+  git -C "$case_dir/project" -c user.email=t@t -c user.name=t commit -q -m "unmerged feature"
   git -C "$case_dir/project" checkout -q main
 
   rc=0
@@ -2544,6 +2552,68 @@ test_teardown_staleness_sweep_leaves_unmerged_local_branch_alone() {
     fail "staleness sweep incorrectly deleted unmerged local branch fm/unmerged-feature"
   fi
   pass "staleness sweep leaves unmerged local branch untouched"
+}
+
+test_teardown_staleness_sweep_deletes_squash_landed_local_branch() {
+  local case_dir rc
+  case_dir=$(make_case sweep-squash-local)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  # Create a feature branch whose content lands on origin/main via a squash
+  # commit (a brand-new SHA never built on top of the branch), exactly as
+  # `gh pr merge --squash` lands a PR - never by fast-forward or merge commit,
+  # so the branch is never an ancestor of main.
+  git -C "$case_dir/project" checkout -q -b fm/squash-feature main
+  printf 'hello\n' > "$case_dir/project/squash-feature.txt"
+  git -C "$case_dir/project" add squash-feature.txt
+  git -C "$case_dir/project" -c user.email=t@t -c user.name=t commit -q -m "squash feature"
+  git -C "$case_dir/project" checkout -q main
+  land_on_origin_main "$case_dir" squash-feature.txt hello
+
+  # Pin the regression: an ancestry-only test must NOT see this branch as merged.
+  if git -C "$case_dir/project" merge-base --is-ancestor fm/squash-feature main 2>/dev/null; then
+    fail "sweep-squash-local: test setup bug, branch should not be an ancestor of main"
+  fi
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if git -C "$case_dir/project" show-ref --verify --quiet refs/heads/fm/squash-feature; then
+    fail "staleness sweep failed to delete squash-landed local branch fm/squash-feature"
+  fi
+  pass "staleness sweep deletes a squash-landed local branch via the content-in-default fallback"
+}
+
+test_teardown_staleness_sweep_leaves_unlanded_content_branch_alone() {
+  local case_dir rc
+  case_dir=$(make_case sweep-unlanded-content)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  # Branch introduces a real change that has NOT landed anywhere: not an
+  # ancestor of main, no merged PR (default gh-axi mock), and its content
+  # differs from origin/main. The broadened Step B candidate set (every local
+  # branch, not just `--merged` ones) must still leave this one alone.
+  git -C "$case_dir/project" checkout -q -b fm/genuinely-unlanded main
+  printf 'still in progress\n' > "$case_dir/project/unlanded.txt"
+  git -C "$case_dir/project" add unlanded.txt
+  git -C "$case_dir/project" -c user.email=t@t -c user.name=t commit -q -m "unlanded work"
+  git -C "$case_dir/project" checkout -q main
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if ! git -C "$case_dir/project" show-ref --verify --quiet refs/heads/fm/genuinely-unlanded; then
+    fail "staleness sweep incorrectly deleted genuinely unlanded local branch fm/genuinely-unlanded"
+  fi
+  pass "staleness sweep leaves a genuinely unlanded local branch alone under the broadened candidate set"
 }
 
 test_teardown_staleness_sweep_leaves_live_task_branch_alone() {
@@ -2792,6 +2862,8 @@ test_process_exit_during_identity_lookup_does_not_refuse
 test_run_abort_precedes_process_reap_precedes_worktree_removal
 test_teardown_staleness_sweep_deletes_merged_local_branch
 test_teardown_staleness_sweep_leaves_unmerged_local_branch_alone
+test_teardown_staleness_sweep_deletes_squash_landed_local_branch
+test_teardown_staleness_sweep_leaves_unlanded_content_branch_alone
 test_teardown_staleness_sweep_leaves_live_task_branch_alone
 test_teardown_staleness_sweep_leaves_worktree_checked_out_branch_alone
 test_teardown_staleness_sweep_prunes_missing_worktree_registration
