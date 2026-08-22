@@ -95,6 +95,12 @@ esac
 exit 0
 SH
 chmod +x "$REMOTE_ROOT/bin/tmux"
+# The remote host-local secondmate launch (fm-remote-secondmate-control.sh
+# cmd_launch) runs fm-spawn.sh under the SSH-simulated child PATH built by
+# fm_remote_job_build_child_path, which starts with $REMOTE_ROOT/bin and
+# deliberately never inherits the local test process's PATH or FAKEBIN. The
+# configured secondmate harness (codex) must resolve there too.
+fm_fake_exit0 "$REMOTE_ROOT/bin" codex
 install_remote_herdr_fixture "$REMOTE_ROOT" "$HERDR_STATE" "$HERDR_LOG" \
   "$TMP_ROOT/herdr-send-fail" "$TMP_ROOT/herdr.sock"
 git -C "$REMOTE_ROOT" init -q -b main

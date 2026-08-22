@@ -3,7 +3,7 @@
 # worktree, or retire a secondmate home; kill the recorded runtime endpoint,
 # clear volatile state, perform post-landing project cleanup (doc pre-check,
 # Supabase migrations check/push, Edge Function deploy, primary clone sync to
-# default branch), sweep the target project for stale merged local/remote
+# default branch), sweep the target project for stale landed local/remote task
 # branches and prunable worktree registrations, refresh/prune the project's
 # clone for PR-based ship tasks, then print a backlog-refresh reminder for
 # ship and scout teardowns (a secondmate teardown prints none, since
@@ -12,19 +12,26 @@
 # hard-resets/removes the worktree and kills its processes. Work has landed when it is
 # reachable from any remote-tracking branch (a fork counts as a remote, so
 # upstream-contribution PRs pushed to a fork satisfy this in any mode), OR - for a
-# normal ship task whose commits are not so reachable - when its PR is merged and
-# GitHub reports a PR head that contains the current local work, or its content is
-# already present in the up-to-date default branch. This recognizes the common
-# squash-merge-then-delete-branch flow, where the branch's own commits live nowhere
-# on a remote yet the change is fully in main.
+# normal ship task whose commits are not so reachable - when its content is already
+# present in the up-to-date default branch, or when a PR merged INTO THE DEFAULT
+# BRANCH reports a head that contains the current local work. This recognizes the
+# common squash-merge-then-delete-branch flow, where the branch's own commits live
+# nowhere on a remote yet the change is fully in main.
+# The content check runs first because it is the cheaper of the two - one fetch
+# shared across the whole run, then purely local git - and the PR check is the
+# fallback that still proves a locally-rewritten, never-pushed tip.
 # The PR itself is resolved from the task's recorded pr= when present, or - when
 # no pr= was ever recorded (e.g. a yolo-authorized merge on a repo with no PR CI,
 # where the usual "checks green" fm-pr-check.sh trigger never fires) - by looking
 # up a merged PR whose head branch matches the worktree's branch, fetching its head
 # via refs/pull/<n>/head when the branch itself was deleted. So a missing pr= never
 # by itself causes a false refusal of landed work.
-# A gh lookup error falls back to the content check; if that is also inconclusive,
-# teardown refuses rather than risk discarding unlanded work.
+# The PR check fails closed on the PR's base branch: a PR merged into some other
+# branch (a stacked or release-branch PR) proves nothing about the default branch,
+# so a base that is missing, unreadable, or not the default branch counts as
+# not-merged.
+# A gh lookup error is no proof either; when neither check concludes, teardown
+# refuses rather than risk discarding unlanded work.
 # Uncommitted changes are never landed.
 # local-only projects additionally accept work merged into the local default
 # branch (firstmate performs that merge after configured approval) as a fallback
@@ -544,15 +551,19 @@ elif [ "$FORCE" != "--force" ] && fm_pf_relay_active "$FM_HOME"; then
   PUBLIC_FOLLOWUP_RELAY_ACTIVE=1
 fi
 
-default_branch() {
-  local ref branch
-  ref=$(git -C "$PROJ" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)
+# Name of <repo>'s default branch, defaulting to the primary project checkout
+# when no repo is given. Callers that operate on an explicitly passed repo must
+# pass it here too, so the branch name is always resolved against the same repo
+# the caller is inspecting.
+default_branch() { # [<repo>]
+  local dir=${1:-$PROJ} ref branch
+  ref=$(git -C "$dir" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)
   if [ -n "$ref" ]; then
     echo "${ref#origin/}"
     return 0
   fi
   for branch in main master; do
-    if git -C "$PROJ" show-ref --verify --quiet "refs/heads/$branch"; then
+    if git -C "$dir" show-ref --verify --quiet "refs/heads/$branch"; then
       echo "$branch"
       return 0
     fi
@@ -697,13 +708,13 @@ remove_pr_poll_artifacts() {
   fi
 }
 
-# Resolve the PR number for a worktree branch via gh-axi. Echoes the number on a
+# Resolve the PR number for a branch via gh-axi. Echoes the number on a
 # single match and returns 0; returns non-zero on no match or any lookup failure,
 # so the caller treats it as "no PR found" (fail-safe).
-pr_number_from_branch() {
-  local branch=$1 out n
+pr_number_from_branch() { # <repo> <branch>
+  local repo=$1 branch=$2 out n
   [ -n "$branch" ] && [ "$branch" != HEAD ] || return 1
-  out=$( cd "$WT" && gh-axi pr list --state all --head "$branch" --limit 1 2>/dev/null ) || return 1
+  out=$( cd "$repo" && gh-axi pr list --state all --head "$branch" --limit 1 2>/dev/null ) || return 1
   n=$(printf '%s\n' "$out" | sed -n 's/^[[:space:]]*\([0-9][0-9]*\),.*/\1/p' | head -1)
   [ -n "$n" ] || return 1
   printf '%s' "$n"
@@ -726,40 +737,43 @@ pr_number_from_target() {
   printf '%s' "$n"
 }
 
-ensure_commit_object() {
-  local target=$1 commit=$2 n
-  git -C "$WT" cat-file -e "$commit^{commit}" 2>/dev/null && return 0
+ensure_commit_object() { # <repo> <target> <commit>
+  local repo=$1 target=$2 commit=$3 n
+  git -C "$repo" cat-file -e "$commit^{commit}" 2>/dev/null && return 0
   n=$(pr_number_from_target "$target") || return 1
-  git -C "$WT" remote get-url origin >/dev/null 2>&1 || return 1
-  git -C "$WT" fetch --quiet origin "refs/pull/$n/head" >/dev/null 2>&1 || return 1
-  git -C "$WT" cat-file -e "$commit^{commit}" 2>/dev/null
+  git -C "$repo" remote get-url origin >/dev/null 2>&1 || return 1
+  git -C "$repo" fetch --quiet origin "refs/pull/$n/head" >/dev/null 2>&1 || return 1
+  git -C "$repo" cat-file -e "$commit^{commit}" 2>/dev/null
 }
 
-patch_id_for_commit() {
-  local commit=$1
-  git -C "$WT" show --pretty=medium --no-ext-diff "$commit" 2>/dev/null \
+patch_id_for_commit() { # <repo> <commit>
+  local repo=$1 commit=$2
+  git -C "$repo" show --pretty=medium --no-ext-diff "$commit" 2>/dev/null \
     | git patch-id --stable 2>/dev/null \
     | awk 'NR == 1 { print $1 }'
 }
 
-unpushed_patches_are_in_pr_head() {
-  local pr_head=$1 current base pr_patch_ids commit patch_id unpushed
-  current=$(git -C "$WT" rev-parse --verify HEAD 2>/dev/null) || return 1
-  base=$(git -C "$WT" merge-base "$current" "$pr_head" 2>/dev/null) || return 1
+# Is every commit reachable from <commit> but not from any remote-tracking
+# branch already represented (by patch-id) among the PR head's commits? This
+# is what proves a locally-rewritten-but-unpushed tip is still contained in a
+# merged PR.
+unpushed_patches_are_in_pr_head() { # <repo> <commit> <pr-head>
+  local repo=$1 commit=$2 pr_head=$3 base pr_patch_ids c patch_id unpushed
+  base=$(git -C "$repo" merge-base "$commit" "$pr_head" 2>/dev/null) || return 1
   pr_patch_ids=$(
-    git -C "$WT" log --format=%H "$base..$pr_head" -- 2>/dev/null \
-      | while IFS= read -r commit; do
-          patch_id_for_commit "$commit"
+    git -C "$repo" log --format=%H "$base..$pr_head" -- 2>/dev/null \
+      | while IFS= read -r c; do
+          patch_id_for_commit "$repo" "$c"
         done \
       | sed '/^$/d' \
       | sort -u
   ) || return 1
   [ -n "$pr_patch_ids" ] || return 1
-  unpushed=$(git -C "$WT" log --format=%H HEAD --not --remotes -- 2>/dev/null) || return 1
+  unpushed=$(git -C "$repo" log --format=%H "$commit" --not --remotes -- 2>/dev/null) || return 1
   [ -n "$unpushed" ] || return 1
-  while IFS= read -r commit; do
-    [ -n "$commit" ] || continue
-    patch_id=$(patch_id_for_commit "$commit") || return 1
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    patch_id=$(patch_id_for_commit "$repo" "$c") || return 1
     [ -n "$patch_id" ] || return 1
     printf '%s\n' "$pr_patch_ids" | grep -qxF "$patch_id" || return 1
   done <<EOF
@@ -767,68 +781,127 @@ $unpushed
 EOF
 }
 
-# Is the worktree's PR merged for local work contained in that PR? Resolves the
-# PR from the recorded pr= URL first, then from the branch name, and asks GitHub
-# for both the PR state and head. Returns non-zero when the PR is not merged, the
-# current work is not contained in the PR head, no PR is found, or any gh error
-# occurs - the caller then falls back to the content check.
-pr_is_merged() {
-  local branch=$1 target view state head current
-  if [ -n "$PR_URL" ]; then
-    target=$PR_URL
+# Is <commit>'s PR merged INTO THE DEFAULT BRANCH, with <commit> contained in
+# that PR? Resolves the PR from <pr-url> first (when given, e.g. the current
+# task's own recorded pr=), then from <branch>'s name, and asks GitHub for the
+# PR state, head and base. Fails closed on the base: a PR merged into some
+# other branch (a stacked or release-branch PR) proves nothing about the
+# default branch, so a base that is missing or is not the default branch counts
+# as not-merged. Returns non-zero when the PR is not merged, was merged
+# elsewhere, <commit> is not contained in the PR head, no PR is found, or any
+# gh error occurs - the caller then falls back to the content check. Status 2
+# distinguishes the one case a caller may want to report out loud: the PR IS
+# merged, but its base does not prove the default branch (missing, unreadable,
+# or some other branch). Every other failure returns 1.
+pr_is_merged() { # <repo> <branch> <commit> [<pr-url>]
+  local repo=$1 branch=$2 commit=$3 pr_url=${4:-} target view rest state head base def_name
+  if [ -n "$pr_url" ]; then
+    target=$pr_url
   else
-    target=$(pr_number_from_branch "$branch") || return 1
+    target=$(pr_number_from_branch "$repo" "$branch") || return 1
   fi
   [ -n "$target" ] || return 1
-  view=$(cd "$WT" && gh pr view "$target" --json state,headRefOid -q '.state + "\t" + .headRefOid' 2>/dev/null) || return 1
+  view=$(cd "$repo" && gh pr view "$target" --json state,headRefOid,baseRefName -q '.state + "\t" + .headRefOid + "\t" + .baseRefName' 2>/dev/null) || return 1
   state=${view%%$'\t'*}
-  head=${view#*$'\t'}
   [ "$state" != "$view" ] || return 1
+  rest=${view#*$'\t'}
+  head=${rest%%$'\t'*}
+  [ "$head" != "$rest" ] || return 1
+  base=${rest#*$'\t'}
   case "$state" in
     MERGED|merged) ;;
     *) return 1 ;;
   esac
   [ -n "$head" ] || return 1
-  ensure_commit_object "$target" "$head" || return 1
-  current=$(git -C "$WT" rev-parse --verify HEAD 2>/dev/null) || return 1
-  git -C "$WT" merge-base --is-ancestor "$current" "$head" 2>/dev/null && return 0
-  unpushed_patches_are_in_pr_head "$head"
+  [ -n "$base" ] || return 2
+  def_name=$(default_branch "$repo") || return 2
+  [ "$base" = "$def_name" ] || return 2
+  ensure_commit_object "$repo" "$target" "$head" || return 1
+  git -C "$repo" merge-base --is-ancestor "$commit" "$head" 2>/dev/null && return 0
+  unpushed_patches_are_in_pr_head "$repo" "$commit" "$head"
 }
 
-# Is the branch's content already present in the up-to-date default branch? Fetches
-# first, then 3-way merges the default branch with HEAD: when HEAD introduces nothing
-# the default branch does not already contain (e.g. its change landed via squash) the
-# merged tree equals the default branch's tree. This isolates branch-only changes, so
-# unrelated commits the default branch gained past the merge-base do not count as
-# "added". Returns non-zero when inconclusive (no default ref, or a merge conflict),
-# so the caller refuses rather than guesses.
-content_in_default() {
-  local name ref default_tree merged_tree
-  name=$(default_branch) || return 1
-  if git -C "$WT" remote get-url origin >/dev/null 2>&1; then
-    git -C "$WT" fetch --quiet origin "+refs/heads/$name:refs/remotes/origin/$name" >/dev/null 2>&1 || return 1
+# Refs already fetched (or already known unfetchable) in this teardown run, so a
+# per-branch loop pays for the network round trip once instead of once per branch.
+FM_FETCHED_DEFAULT_REFS=""
+
+# Fetch <repo>'s default branch <name> from origin, at most once per repo per run.
+# Keyed on the shared git dir so a project and its worktrees - which resolve to the
+# same remote-tracking refs - share the single fetch. Returns non-zero when the
+# fetch failed, and remembers that too, so an offline run does not retry per branch.
+fetch_default_ref_once() { # <repo> <name>
+  local repo=$1 name=$2 key
+  key=$(git -C "$repo" rev-parse --git-common-dir 2>/dev/null) || key=$repo
+  case "$key" in
+    /*) ;;
+    *) key="$repo/$key" ;;
+  esac
+  key="$key|$name"
+  case "$FM_FETCHED_DEFAULT_REFS" in
+    *"<ok $key>"*) return 0 ;;
+    *"<fail $key>"*) return 1 ;;
+  esac
+  if git -C "$repo" fetch --quiet origin "+refs/heads/$name:refs/remotes/origin/$name" >/dev/null 2>&1; then
+    FM_FETCHED_DEFAULT_REFS="$FM_FETCHED_DEFAULT_REFS<ok $key>"
+    return 0
+  fi
+  FM_FETCHED_DEFAULT_REFS="$FM_FETCHED_DEFAULT_REFS<fail $key>"
+  return 1
+}
+
+# Is <commit>'s content already present in the up-to-date default branch? Fetches
+# first, then 3-way merges the default branch with <commit>: when <commit> introduces
+# nothing the default branch does not already contain (e.g. its change landed via
+# squash) the merged tree equals the default branch's tree. This isolates
+# commit-only changes, so unrelated commits the default branch gained past the
+# merge-base do not count as "added". Squash-safe: a squash-merged branch's tip
+# is never an ancestor of the default branch, but its tree still matches once the
+# squash lands, so this catches what ancestry-only tests (merge-base
+# --is-ancestor, `git branch --merged`) miss. Returns non-zero when inconclusive
+# (no default ref, or a merge conflict), so the caller refuses rather than guesses.
+content_in_default() { # <repo> <commit>
+  local repo=$1 commit=$2 name ref default_tree merged_tree
+  name=$(default_branch "$repo") || return 1
+  if git -C "$repo" remote get-url origin >/dev/null 2>&1; then
+    fetch_default_ref_once "$repo" "$name" || return 1
     ref="refs/remotes/origin/$name"
-  elif git -C "$WT" rev-parse --quiet --verify "refs/heads/$name" >/dev/null 2>&1; then
+  elif git -C "$repo" rev-parse --quiet --verify "refs/heads/$name" >/dev/null 2>&1; then
     ref="refs/heads/$name"
   else
     return 1
   fi
-  default_tree=$(git -C "$WT" rev-parse --quiet --verify "$ref^{tree}" 2>/dev/null) || return 1
+  default_tree=$(git -C "$repo" rev-parse --quiet --verify "$ref^{tree}" 2>/dev/null) || return 1
   [ -n "$default_tree" ] || return 1
-  merged_tree=$(git -C "$WT" merge-tree --write-tree "$ref" HEAD 2>/dev/null) || return 1
+  merged_tree=$(git -C "$repo" merge-tree --write-tree "$ref" "$commit" 2>/dev/null) || return 1
   merged_tree=$(printf '%s\n' "$merged_tree" | head -1)
   [ "$merged_tree" = "$default_tree" ]
 }
 
-# Has the worktree's committed work actually LANDED, though its commits are not
-# reachable from any remote-tracking branch? True when a merged PR proves the
-# current local work is contained in the PR head, OR the content is already in the
-# default branch (fallback, which also covers the no-PR and gh-error paths). False
-# only for genuinely unlanded work.
-work_is_landed() {
-  local branch=$1
-  pr_is_merged "$branch" && return 0
-  content_in_default
+# Has <commit> actually LANDED, though it may not be reachable from any
+# remote-tracking branch or ancestor of the default branch? True when its content
+# is already in the default branch (which covers the squash-merge case), OR a PR
+# merged into the default branch proves it is contained in that PR's head (which
+# covers the locally-rewritten-but-unpushed tip). False only for genuinely
+# unlanded work. The content check runs first because it is the cheaper of the
+# two - one fetch shared across the whole run, then purely local git - whereas
+# the PR check costs up to two GitHub API round trips per call. Publishes which
+# arm decided in FM_WORK_LANDED_VIA (content|pr, empty when not landed) so a
+# caller that also needs the PR verdict reuses it instead of paying for the same
+# GitHub round trips twice.
+FM_WORK_LANDED_VIA=""
+
+work_is_landed() { # <repo> <branch> <commit> [<pr-url>]
+  local repo=$1 branch=$2 commit=$3 pr_url=${4:-}
+  FM_WORK_LANDED_VIA=""
+  if content_in_default "$repo" "$commit"; then
+    FM_WORK_LANDED_VIA="content"
+    return 0
+  fi
+  if pr_is_merged "$repo" "$branch" "$commit" "$pr_url"; then
+    FM_WORK_LANDED_VIA="pr"
+    return 0
+  fi
+  return 1
 }
 
 backlog_refresh_reminder() {
@@ -1074,7 +1147,7 @@ teardown_treehouse_return() {
 }
 
 validate_worktree_teardown_safety() {
-  local dirty_raw dirty unpushed_raw unpushed DEFAULT unmerged_raw unmerged branch
+  local dirty_raw dirty unpushed_raw unpushed DEFAULT unmerged_raw unmerged branch commit
   [ -d "$WT" ] || return 0
   [ "$FORCE" != "--force" ] || return 0
   case "$KIND" in
@@ -1130,7 +1203,8 @@ validate_worktree_teardown_safety() {
       branch=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
       TEARDOWN_WORKTREE_BRANCH_FOR_SAFETY=$branch
     fi
-    if ! work_is_landed "$branch"; then
+    commit=$(git -C "$WT" rev-parse --verify HEAD 2>/dev/null) || commit=
+    if [ -z "$commit" ] || ! work_is_landed "$WT" "$branch" "$commit" "$PR_URL"; then
       echo "REFUSED: worktree $WT has work not on any remote and not landed." >&2
       printf 'unpushed commits:\n%s\n' "$unpushed" >&2
       echo "Push the branch, land its PR, or get the captain's explicit OK to discard, then --force." >&2
@@ -2171,8 +2245,8 @@ teardown_project_staleness_sweep() {
   local project=$1 def_branch current_branch worktree_branches
   local meta_f meta_proj meta_wt wt_branch
   local -a live_branches live_worktrees
-  local merged_local_branches b
-  local remote_branches origin_b pr_list_out pr_num pr_view_out
+  local all_local_branches b branch_commit landed landed_via
+  local remote_branches origin_b remote_commit pr_rc
   [ -n "$project" ] && [ -d "$project" ] || return 0
   git -C "$project" rev-parse --git-dir >/dev/null 2>&1 || return 0
 
@@ -2202,9 +2276,22 @@ teardown_project_staleness_sweep() {
     done
   fi
 
-  # Step B: Sweep local branches fully merged into default branch
-  merged_local_branches=$(git -C "$project" for-each-ref --format='%(refname:short)' --merged "$def_branch" refs/heads 2>/dev/null || true)
-  if [ -n "$merged_local_branches" ]; then
+  # Step B: Sweep local branches whose work has genuinely landed. Considers
+  # every local branch, not only literal ancestors of the default branch: a
+  # squash merge creates a brand-new commit on the default branch, so a
+  # squash-landed branch is never an ancestor and an ancestry-only test
+  # (for-each-ref --merged, merge-base --is-ancestor) would leave it stuck
+  # forever. Ancestry is tried first as a fast, network-free path; when it
+  # can't prove landing, work_is_landed's squash-safe content/PR test decides.
+  # Hard Rule 3: a branch whose content cannot be proven landed is left alone;
+  # any failure to determine merged state means keep the branch, never delete it.
+  # Landing alone does not authorize deletion: only a task-associated branch is
+  # ever deleted - one named with the fleet's fm/ task-branch prefix, or one with
+  # an unambiguous PR merged into the default branch. A landed branch that is
+  # neither (a foreign release branch whose commits were backported, say) is
+  # reported and left for the owner to remove by hand.
+  all_local_branches=$(git -C "$project" for-each-ref --format='%(refname:short)' refs/heads 2>/dev/null || true)
+  if [ -n "$all_local_branches" ]; then
     while IFS= read -r b; do
       [ -n "$b" ] || continue
       [ "$b" != "$def_branch" ] || continue
@@ -2216,14 +2303,34 @@ teardown_project_staleness_sweep() {
       if [ "${#live_branches[@]}" -gt 0 ] && printf '%s\n' "${live_branches[@]}" | grep -Fxq -- "$b"; then
         continue
       fi
-      # Hard Rule 3: Never delete a branch that has any commit not reachable from the default branch
-      if git -C "$project" merge-base --is-ancestor "$b" "$def_branch" 2>/dev/null; then
-        if git -C "$project" branch -d "$b" >/dev/null 2>&1 || git -C "$project" branch -D "$b" >/dev/null 2>&1; then
-          echo "teardown: deleted stale merged local branch: $b"
-        fi
+      branch_commit=$(git -C "$project" rev-parse --verify "refs/heads/$b" 2>/dev/null) || continue
+      landed=0
+      landed_via=
+      if git -C "$project" merge-base --is-ancestor "$branch_commit" "$def_branch" 2>/dev/null; then
+        landed=1
+        landed_via="ancestry"
+      elif work_is_landed "$project" "$b" "$branch_commit" ""; then
+        landed=1
+        landed_via=$FM_WORK_LANDED_VIA
+      fi
+      [ "$landed" -eq 1 ] || continue
+      case "$b" in
+        fm/*) ;;
+        *)
+          if [ "$landed_via" != "pr" ] && ! pr_is_merged "$project" "$b" "$branch_commit" ""; then
+            echo "teardown: local branch $b appears fully landed in $def_branch but is not a task branch; leaving it alone (safe to remove by hand with: git -C \"$project\" branch -D \"$b\")"
+            continue
+          fi
+          ;;
+      esac
+      # -d refuses a non-ancestor tip (which is exactly what a squash-landed
+      # branch is), so the fallback to -D here is safe: landing was already
+      # independently proven above, not assumed.
+      if git -C "$project" branch -d "$b" >/dev/null 2>&1 || git -C "$project" branch -D "$b" >/dev/null 2>&1; then
+        echo "teardown: deleted stale merged local branch: $b"
       fi
     done <<EOF
-$merged_local_branches
+$all_local_branches
 EOF
   fi
 
@@ -2244,17 +2351,22 @@ EOF
         if [ "${#live_branches[@]}" -gt 0 ] && printf '%s\n' "${live_branches[@]}" | grep -Fxq -- "$b"; then
           continue
         fi
-        # Query gh-axi pr list for PRs matching this head branch
-        if ! pr_list_out=$(cd "$project" && gh-axi pr list --state all --head "$b" --limit 2 2>/dev/null); then
+        # Confirm the branch's PR is merged INTO THE DEFAULT BRANCH before
+        # deleting, never guess from branch name or bare merged state alone: a
+        # stacked PR merged into another feature branch proves nothing about the
+        # default branch. Decided by the same pr_is_merged() the worktree check
+        # and Step B use, so the two sweeps cannot drift apart on what "merged"
+        # means. Status 2 is the reportable case (merged, but its base is
+        # missing, unreadable, or not the default branch); every other non-zero
+        # means no single merged PR was found at all, which stays silent.
+        remote_commit=$(git -C "$project" rev-parse --verify "refs/remotes/$origin_b" 2>/dev/null) || continue
+        pr_rc=0
+        pr_is_merged "$project" "$b" "$remote_commit" "" || pr_rc=$?
+        if [ "$pr_rc" -eq 2 ]; then
+          echo "teardown: keeping remote branch origin/$b: its merged PR's base branch is missing, unreadable, or is not $def_branch"
           continue
         fi
-        [ -n "$pr_list_out" ] || continue
-        # Extract PR number; ensure exactly one PR was returned
-        pr_num=$(printf '%s\n' "$pr_list_out" | sed -n 's/^[[:space:]]*\([0-9][0-9]*\),.*/\1/p' | head -1)
-        [ -n "$pr_num" ] || continue
-        # Confirm via the PR's merged state before deleting, never guess from branch name alone
-        pr_view_out=$(cd "$project" && gh-axi pr view "$pr_num" 2>/dev/null || true)
-        if printf '%s\n' "$pr_view_out" | grep -Eq '^[[:space:]]*(state:[[:space:]]*[Mm][Ee][Rr][Gg][Ee][Dd]|merged:[[:space:]]*yes)'; then
+        if [ "$pr_rc" -eq 0 ]; then
           if git -C "$project" push origin --delete "$b" 2>/dev/null; then
             echo "teardown: deleted stale merged remote branch: $b"
           else

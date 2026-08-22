@@ -255,9 +255,10 @@ land_on_origin_main() {
   rm -rf "$tmp"
 }
 
-# Override GitHub lookups to report PR 7 as merged with the supplied head.
+# Override GitHub lookups to report PR 7 as merged with the supplied head, and
+# with the supplied base branch (default: main, the fixture's default branch).
 add_gh_pr_merged_for_head() {
-  local case_dir=$1 head=$2
+  local case_dir=$1 head=$2 base=${3:-main}
   cat > "$case_dir/fakebin/gh-axi" <<'SH'
 #!/usr/bin/env bash
 case "${1:-} ${2:-}" in
@@ -273,6 +274,7 @@ SH
 case "\${1:-} \${2:-}" in
   "pr view")
     case " \$* " in
+      *"state,headRefOid,baseRefName"*) printf '%s\t%s\t%s\n' 'MERGED' '$head' '$base' ; exit 0 ;;
       *"state,headRefOid"*) printf '%s\t%s\n' 'MERGED' '$head' ; exit 0 ;;
       *"headRefOid"*) printf '%s\n' '$head' ; exit 0 ;;
     esac
@@ -713,6 +715,29 @@ test_squash_merged_branch_deleted_allows() {
   expect_code 0 "$rc" "squash-merged: teardown should succeed when the PR is merged"
   ! grep -q REFUSED "$case_dir/stderr" || fail "squash-merged: teardown printed a REFUSED line"
   pass "squash-merged + deleted-branch worktree (PR merged) is torn down (the fix)"
+}
+
+test_merged_pr_into_non_default_base_refuses() {
+  local case_dir rc pr_head
+  case_dir=$(make_case pr-merged-elsewhere)
+  write_meta "$case_dir" no-mistakes ship
+  # The PR is MERGED and contains HEAD, but it was merged into a release branch,
+  # not into main - a stacked/release-branch workflow. Nothing proves the content
+  # reached the default branch (origin/main never gained it), so the merged-PR
+  # signal must not count and teardown must refuse.
+  wt_commit_file "$case_dir" feature.txt hello "add feature"
+  append_pr_meta_for_current_head "$case_dir"
+  pr_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  add_gh_pr_merged_for_head "$case_dir" "$pr_head" release/1.x
+
+  set +e
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "pr-merged-elsewhere: teardown should refuse a PR merged into a non-default base"
+  grep -q REFUSED "$case_dir/stderr" || fail "pr-merged-elsewhere: no REFUSED line in stderr"
+  pass "PR merged into a non-default base branch does not count as landed (fail-safe)"
 }
 
 test_squash_merged_pr_allows_when_head_ancestor_of_pr_head() {
@@ -2531,9 +2556,17 @@ test_teardown_staleness_sweep_leaves_unmerged_local_branch_alone() {
   git -C "$case_dir/wt" push -q origin fm/task-x1:main
   git -C "$case_dir/project" fetch -q origin
 
-  # Create an unmerged feature branch
+  # Create an unmerged feature branch with a REAL content change. An empty
+  # commit would not exercise this test's actual contract: Step B's
+  # squash-safe content check (content_in_default) correctly treats a
+  # content-identical tree as landed regardless of ancestry, so an
+  # --allow-empty commit - whose tree trivially equals main's - would get
+  # swept too, for the same reason a genuinely landed squash commit does.
+  # The branch worth preserving here is one with a real, undelivered change.
   git -C "$case_dir/project" checkout -q -b fm/unmerged-feature main
-  git -C "$case_dir/project" -c user.email=t@t -c user.name=t commit -q --allow-empty -m "unmerged feature"
+  printf 'still cooking\n' > "$case_dir/project/unmerged-feature.txt"
+  git -C "$case_dir/project" add unmerged-feature.txt
+  git -C "$case_dir/project" -c user.email=t@t -c user.name=t commit -q -m "unmerged feature"
   git -C "$case_dir/project" checkout -q main
 
   rc=0
@@ -2544,6 +2577,129 @@ test_teardown_staleness_sweep_leaves_unmerged_local_branch_alone() {
     fail "staleness sweep incorrectly deleted unmerged local branch fm/unmerged-feature"
   fi
   pass "staleness sweep leaves unmerged local branch untouched"
+}
+
+test_teardown_staleness_sweep_deletes_squash_landed_local_branch() {
+  local case_dir rc
+  case_dir=$(make_case sweep-squash-local)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  # Create a feature branch whose content lands on origin/main via a squash
+  # commit (a brand-new SHA never built on top of the branch), exactly as
+  # `gh pr merge --squash` lands a PR - never by fast-forward or merge commit,
+  # so the branch is never an ancestor of main.
+  git -C "$case_dir/project" checkout -q -b fm/squash-feature main
+  printf 'hello\n' > "$case_dir/project/squash-feature.txt"
+  git -C "$case_dir/project" add squash-feature.txt
+  git -C "$case_dir/project" -c user.email=t@t -c user.name=t commit -q -m "squash feature"
+  git -C "$case_dir/project" checkout -q main
+  land_on_origin_main "$case_dir" squash-feature.txt hello
+
+  # Pin the regression: an ancestry-only test must NOT see this branch as merged.
+  if git -C "$case_dir/project" merge-base --is-ancestor fm/squash-feature main 2>/dev/null; then
+    fail "sweep-squash-local: test setup bug, branch should not be an ancestor of main"
+  fi
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if git -C "$case_dir/project" show-ref --verify --quiet refs/heads/fm/squash-feature; then
+    fail "staleness sweep failed to delete squash-landed local branch fm/squash-feature"
+  fi
+  pass "staleness sweep deletes a squash-landed local branch via the content-in-default fallback"
+}
+
+test_teardown_staleness_sweep_leaves_unlanded_content_branch_alone() {
+  local case_dir rc
+  case_dir=$(make_case sweep-unlanded-content)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  # Branch introduces a real change that has NOT landed anywhere: not an
+  # ancestor of main, no merged PR (default gh-axi mock), and its content
+  # differs from origin/main. The broadened Step B candidate set (every local
+  # branch, not just `--merged` ones) must still leave this one alone.
+  git -C "$case_dir/project" checkout -q -b fm/genuinely-unlanded main
+  printf 'still in progress\n' > "$case_dir/project/unlanded.txt"
+  git -C "$case_dir/project" add unlanded.txt
+  git -C "$case_dir/project" -c user.email=t@t -c user.name=t commit -q -m "unlanded work"
+  git -C "$case_dir/project" checkout -q main
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if ! git -C "$case_dir/project" show-ref --verify --quiet refs/heads/fm/genuinely-unlanded; then
+    fail "staleness sweep incorrectly deleted genuinely unlanded local branch fm/genuinely-unlanded"
+  fi
+  pass "staleness sweep leaves a genuinely unlanded local branch alone under the broadened candidate set"
+}
+
+test_teardown_staleness_sweep_keeps_landed_non_task_branch() {
+  local case_dir rc
+  case_dir=$(make_case sweep-landed-non-task)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  # A foreign branch whose content is fully landed in main, but which is not
+  # task-associated: no fm/ task-branch prefix and no merged PR (the default
+  # gh mock reports none). Landing alone must not authorize deleting somebody
+  # else's branch - the sweep reports it and leaves it in place.
+  git -C "$case_dir/project" checkout -q -b release/1.x main
+  printf 'backported\n' > "$case_dir/project/backport.txt"
+  git -C "$case_dir/project" add backport.txt
+  git -C "$case_dir/project" -c user.email=t@t -c user.name=t commit -q -m "backport"
+  git -C "$case_dir/project" checkout -q main
+  git -C "$case_dir/project" merge -q --no-ff -m "merge backport" release/1.x
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if ! git -C "$case_dir/project" show-ref --verify --quiet refs/heads/release/1.x; then
+    fail "staleness sweep deleted landed but non-task-associated local branch release/1.x"
+  fi
+  assert_grep "release/1.x appears fully landed" "$case_dir/stdout" \
+    "sweep-landed-non-task: no report line naming the landed non-task branch"
+  pass "staleness sweep reports but never deletes a landed branch that is not task-associated"
+}
+
+test_teardown_staleness_sweep_deletes_landed_non_task_branch_with_merged_pr() {
+  local case_dir rc branch_head
+  case_dir=$(make_case sweep-landed-non-task-pr)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  # Same shape as the case above - a branch without the fm/ prefix - except this
+  # one carries an unambiguous PR merged into the default branch, which is the
+  # second way a branch qualifies as task-associated and so deletable.
+  git -C "$case_dir/project" checkout -q -b hotfix/1.x main
+  printf 'hotfix\n' > "$case_dir/project/hotfix.txt"
+  git -C "$case_dir/project" add hotfix.txt
+  git -C "$case_dir/project" -c user.email=t@t -c user.name=t commit -q -m "hotfix"
+  git -C "$case_dir/project" checkout -q main
+  git -C "$case_dir/project" merge -q --no-ff -m "merge hotfix" hotfix/1.x
+  branch_head=$(git -C "$case_dir/project" rev-parse refs/heads/hotfix/1.x)
+  add_gh_pr_merged_for_head "$case_dir" "$branch_head" main
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if git -C "$case_dir/project" show-ref --verify --quiet refs/heads/hotfix/1.x; then
+    fail "staleness sweep failed to delete landed non-fm branch hotfix/1.x with a merged PR into main"
+  fi
+  pass "staleness sweep deletes a landed non-fm branch whose PR merged into the default branch"
 }
 
 test_teardown_staleness_sweep_leaves_live_task_branch_alone() {
@@ -2649,8 +2805,44 @@ test_teardown_staleness_sweep_leaves_dirty_worktree_alone() {
   pass "staleness sweep leaves dirty worktree untouched"
 }
 
+# Mock the GitHub lookups a remote-branch sweep candidate needs: gh-axi resolves
+# the PR number from the head branch, and gh reports that PR's state, head and
+# base - the three facts pr_is_merged() decides on. Every other branch gets "no
+# PR". Args: case_dir branch pr_num state head [base]
+add_remote_branch_pr_mocks() {
+  local case_dir=$1 branch=$2 pr_num=$3 state=$4 head=$5 base=${6:-main}
+  cat > "$case_dir/fakebin/gh-axi" <<SH
+#!/usr/bin/env bash
+case "\${1:-} \${2:-}" in
+  "pr list")
+    case " \$* " in
+      *"--head $branch"*)
+        printf '%s\n' "count: 1 (showing first 1)" "pull_requests[1]{number,state}:" "  $pr_num,$state" ; exit 0 ;;
+      *)
+        printf '%s\n' "count: 0 (showing first 0)" "pull_requests[]: []" ; exit 0 ;;
+    esac
+    ;;
+esac
+exit 0
+SH
+  cat > "$case_dir/fakebin/gh" <<SH
+#!/usr/bin/env bash
+case "\${1:-} \${2:-}" in
+  "pr view")
+    case " \$* " in
+      *" $pr_num "*)
+        printf '%s\t%s\t%s\n' '$state' '$head' '$base' ; exit 0 ;;
+    esac
+    ;;
+esac
+echo "error: pull request not found" >&2
+exit 1
+SH
+  chmod +x "$case_dir/fakebin/gh-axi" "$case_dir/fakebin/gh"
+}
+
 test_teardown_staleness_sweep_deletes_merged_remote_branch() {
-  local case_dir rc
+  local case_dir rc branch_head
   case_dir=$(make_case sweep-merged-remote)
   write_meta "$case_dir" no-mistakes ship
   wt_commit "$case_dir" "main work"
@@ -2661,25 +2853,11 @@ test_teardown_staleness_sweep_deletes_merged_remote_branch() {
   git -C "$case_dir/project" checkout -q -b fm/remote-merged main
   git -C "$case_dir/project" push -q origin fm/remote-merged
   git -C "$case_dir/project" checkout -q main
+  branch_head=$(git -C "$case_dir/project" rev-parse refs/heads/fm/remote-merged)
 
-  # Mock gh-axi to report fm/remote-merged PR as merged
-  cat > "$case_dir/fakebin/gh-axi" <<'SH'
-#!/usr/bin/env bash
-case "${1:-} ${2:-}" in
-  "pr list")
-    case " $* " in
-      *"--head fm/remote-merged"*)
-        printf '%s\n' "count: 1 (showing first 1)" "pull_requests[1]{number,state}:" "  42,merged" ; exit 0 ;;
-      *)
-        printf '%s\n' "count: 0 (showing first 0)" "pull_requests[]: []" ; exit 0 ;;
-    esac
-    ;;
-  "pr view")
-    printf '%s\n' "pull_request:" "  number: 42" "  state: merged" "  merged: yes" ; exit 0 ;;
-esac
-exit 0
-SH
-  chmod +x "$case_dir/fakebin/gh-axi"
+  # PR 42 for fm/remote-merged: MERGED, into the default branch, with the
+  # branch tip contained in its head - the only shape that authorizes deletion.
+  add_remote_branch_pr_mocks "$case_dir" fm/remote-merged 42 MERGED "$branch_head" main
 
   rc=0
   run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
@@ -2692,7 +2870,7 @@ SH
 }
 
 test_teardown_staleness_sweep_leaves_unmerged_remote_branch_alone() {
-  local case_dir rc
+  local case_dir rc branch_head
   case_dir=$(make_case sweep-unmerged-remote)
   write_meta "$case_dir" no-mistakes ship
   wt_commit "$case_dir" "main work"
@@ -2704,24 +2882,9 @@ test_teardown_staleness_sweep_leaves_unmerged_remote_branch_alone() {
   git -C "$case_dir/project" push -q origin fm/remote-open
   git -C "$case_dir/project" checkout -q main
 
-  # Mock gh-axi to report fm/remote-open PR as open (not merged)
-  cat > "$case_dir/fakebin/gh-axi" <<'SH'
-#!/usr/bin/env bash
-case "${1:-} ${2:-}" in
-  "pr list")
-    case " $* " in
-      *"--head fm/remote-open"*)
-        printf '%s\n' "count: 1 (showing first 1)" "pull_requests[1]{number,state}:" "  43,open" ; exit 0 ;;
-      *)
-        printf '%s\n' "count: 0 (showing first 0)" "pull_requests[]: []" ; exit 0 ;;
-    esac
-    ;;
-  "pr view")
-    printf '%s\n' "pull_request:" "  number: 43" "  state: open" "  merged: no" ; exit 0 ;;
-esac
-exit 0
-SH
-  chmod +x "$case_dir/fakebin/gh-axi"
+  # PR 43 for fm/remote-open is OPEN, so nothing proves the branch landed.
+  branch_head=$(git -C "$case_dir/project" rev-parse refs/heads/fm/remote-open)
+  add_remote_branch_pr_mocks "$case_dir" fm/remote-open 43 OPEN "$branch_head" main
 
   rc=0
   run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
@@ -2731,6 +2894,39 @@ SH
     fail "staleness sweep incorrectly deleted open remote branch fm/remote-open"
   fi
   pass "staleness sweep leaves unmerged remote branch untouched"
+}
+
+test_teardown_staleness_sweep_keeps_remote_branch_merged_into_non_default_base() {
+  local case_dir rc branch_head
+  case_dir=$(make_case sweep-remote-non-default-base)
+  write_meta "$case_dir" no-mistakes ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  git -C "$case_dir/project" checkout -q -b fm/remote-stacked main
+  printf 'stacked work\n' > "$case_dir/project/stacked.txt"
+  git -C "$case_dir/project" add stacked.txt
+  git -C "$case_dir/project" -c user.email=t@t -c user.name=t commit -q -m "stacked work"
+  git -C "$case_dir/project" push -q origin fm/remote-stacked
+  git -C "$case_dir/project" checkout -q main
+  branch_head=$(git -C "$case_dir/project" rev-parse refs/heads/fm/remote-stacked)
+
+  # PR 44 IS merged, but into another feature branch - a stacked PR. Nothing
+  # proves the content reached the default branch, so the remote branch must
+  # survive and the sweep must say why rather than deleting the last copy.
+  add_remote_branch_pr_mocks "$case_dir" fm/remote-stacked 44 MERGED "$branch_head" feature/base
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if ! git -C "$case_dir/origin.git" show-ref --verify --quiet refs/heads/fm/remote-stacked; then
+    fail "staleness sweep deleted a remote branch whose PR merged into a non-default base"
+  fi
+  assert_grep "keeping remote branch origin/fm/remote-stacked" "$case_dir/stdout" \
+    "sweep-remote-non-default-base: no keep-and-report line for the non-default-base PR"
+  pass "staleness sweep keeps and reports a remote branch whose PR merged into a non-default base"
 }
 
 test_local_only_fork_remote_allows
@@ -2753,6 +2949,7 @@ test_herdr_projection_teardown_retires_journal_only_after_confirmed_close
 test_herdr_projection_teardown_retains_journal_when_close_unconfirmed
 test_herdr_projection_teardown_surfaces_restore_failure_without_blocking_cleanup
 test_squash_merged_branch_deleted_allows
+test_merged_pr_into_non_default_base_refuses
 test_squash_merged_pr_allows_when_head_ancestor_of_pr_head
 test_no_pr_recorded_discovers_merged_pr_by_branch_allows
 test_squash_merged_pr_allows_replayed_unpushed_patch
@@ -2792,9 +2989,14 @@ test_process_exit_during_identity_lookup_does_not_refuse
 test_run_abort_precedes_process_reap_precedes_worktree_removal
 test_teardown_staleness_sweep_deletes_merged_local_branch
 test_teardown_staleness_sweep_leaves_unmerged_local_branch_alone
+test_teardown_staleness_sweep_deletes_squash_landed_local_branch
+test_teardown_staleness_sweep_leaves_unlanded_content_branch_alone
+test_teardown_staleness_sweep_keeps_landed_non_task_branch
+test_teardown_staleness_sweep_deletes_landed_non_task_branch_with_merged_pr
 test_teardown_staleness_sweep_leaves_live_task_branch_alone
 test_teardown_staleness_sweep_leaves_worktree_checked_out_branch_alone
 test_teardown_staleness_sweep_prunes_missing_worktree_registration
 test_teardown_staleness_sweep_leaves_dirty_worktree_alone
 test_teardown_staleness_sweep_deletes_merged_remote_branch
 test_teardown_staleness_sweep_leaves_unmerged_remote_branch_alone
+test_teardown_staleness_sweep_keeps_remote_branch_merged_into_non_default_base
