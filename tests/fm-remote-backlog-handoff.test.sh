@@ -17,7 +17,28 @@ FAKEBIN=$(fm_fakebin "$TMP_ROOT/fake")
 SSH_COUNT="$TMP_ROOT/ssh.count"
 mkdir -p "$PARENT/data" "$PARENT/state" "$REMOTE_ROOT/bin" \
   "$REMOTE/data" "$REMOTE/state" "$REMOTE/config" "$REMOTE/projects" "$REMOTE/bin"
-trap 'touch "$TMP_ROOT/put.release" "$TMP_ROOT/route.release" 2>/dev/null || true; if [ -f "$TMP_ROOT/remote-jobs/worker.pid" ]; then kill "$(cat "$TMP_ROOT/remote-jobs/worker.pid")" 2>/dev/null || true; fi; rm -rf -- "$TMP_ROOT"' EXIT
+# Capture $? first so a cleanup hiccup below can never overwrite the real
+# test verdict, and wait out a killed worker before the recursive rm: it may
+# still be writing into remote-jobs/worker.lock/ for a moment after the
+# signal, and rm -rf can lose that race with an ENOTEMPTY error that would
+# otherwise clobber an all-tests-passed exit status.
+# shellcheck disable=SC2154  # ec and wpid are assigned and used only inside this trap string
+trap '
+  ec=$?
+  touch "$TMP_ROOT/put.release" "$TMP_ROOT/route.release" 2>/dev/null || true
+  if [ -f "$TMP_ROOT/remote-jobs/worker.pid" ]; then
+    wpid=$(cat "$TMP_ROOT/remote-jobs/worker.pid" 2>/dev/null || true)
+    if [ -n "$wpid" ]; then
+      kill "$wpid" 2>/dev/null || true
+      for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+        kill -0 "$wpid" 2>/dev/null || break
+        sleep 0.1
+      done
+    fi
+  fi
+  rm -rf -- "$TMP_ROOT" 2>/dev/null || rm -rf -- "$TMP_ROOT" 2>/dev/null || true
+  exit "$ec"
+' EXIT
 printf 'fixture\n' > "$REMOTE_ROOT/AGENTS.md"
 cp "$ROOT/bin/fm-remote-entrypoint.sh" "$ROOT/bin/fm-remote-job-lib.sh" \
   "$ROOT/bin/fm-remote-job-worker.sh" "$ROOT/bin/fm-remote-file.sh" \

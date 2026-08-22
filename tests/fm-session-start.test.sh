@@ -547,6 +547,7 @@ EOF
   } > "$home/state/$id.meta"
   ln -s "$ROOT/bin" "$root/bin"
   make_fake_toolchain "$fakebin"
+  fm_fake_exit0 "$fakebin" pi
   make_fake_ps_claude "$fakebin"
   make_fake_tmux_secondmate_recovery "$fakebin"
   : > "$log"
@@ -593,6 +594,7 @@ EOF
   } > "$home/state/$id.meta"
   ln -s "$ROOT/bin" "$root/bin"
   make_fake_toolchain "$fakebin"
+  fm_fake_exit0 "$fakebin" pi
   make_fake_ps_claude "$fakebin"
   make_fake_herdr_secondmate_recovery "$fakebin"
   : > "$log"
