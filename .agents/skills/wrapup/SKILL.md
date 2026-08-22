@@ -27,7 +27,7 @@ Drive the post-landing merge, project cleanup, staleness sweep, and clean state 
 ## 3. Post-landing cleanup and repo staleness sweep
 
 1. Run `bin/fm-teardown.sh <task-id>` to execute post-landing cleanup and the repo-wide staleness sweep for the task's project.
-2. `fm-teardown.sh` verifies that work is landed, tears down the task worktree, checks documentation progress, checks and applies pending Supabase database migrations, deploys changed Supabase Edge Functions, syncs the primary clone with the default branch, prunes remote tracking branches, and sweeps the project repository for safe-to-delete merged local branches, prunable worktree registrations, and merged remote branches.
+2. `fm-teardown.sh` verifies that work is landed, tears down the task worktree, checks documentation progress, checks and applies pending Supabase database migrations, deploys changed Supabase Edge Functions, syncs the primary clone with the default branch, prunes remote tracking branches, and sweeps the project repository for provably landed local and remote task branches and prunable worktree registrations (`docs/architecture.md` owns the exact deletion rules).
 3. If teardown reports an uncommitted changes or unlanded work refusal, stop and investigate immediately rather than bypassing safety checks.
 
 ## 4. Verify and report clean state
