@@ -2641,6 +2641,67 @@ test_teardown_staleness_sweep_leaves_unlanded_content_branch_alone() {
   pass "staleness sweep leaves a genuinely unlanded local branch alone under the broadened candidate set"
 }
 
+test_teardown_staleness_sweep_keeps_landed_non_task_branch() {
+  local case_dir rc
+  case_dir=$(make_case sweep-landed-non-task)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  # A foreign branch whose content is fully landed in main, but which is not
+  # task-associated: no fm/ task-branch prefix and no merged PR (the default
+  # gh mock reports none). Landing alone must not authorize deleting somebody
+  # else's branch - the sweep reports it and leaves it in place.
+  git -C "$case_dir/project" checkout -q -b release/1.x main
+  printf 'backported\n' > "$case_dir/project/backport.txt"
+  git -C "$case_dir/project" add backport.txt
+  git -C "$case_dir/project" -c user.email=t@t -c user.name=t commit -q -m "backport"
+  git -C "$case_dir/project" checkout -q main
+  git -C "$case_dir/project" merge -q --no-ff -m "merge backport" release/1.x
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if ! git -C "$case_dir/project" show-ref --verify --quiet refs/heads/release/1.x; then
+    fail "staleness sweep deleted landed but non-task-associated local branch release/1.x"
+  fi
+  assert_grep "release/1.x appears fully landed" "$case_dir/stdout" \
+    "sweep-landed-non-task: no report line naming the landed non-task branch"
+  pass "staleness sweep reports but never deletes a landed branch that is not task-associated"
+}
+
+test_teardown_staleness_sweep_deletes_landed_non_task_branch_with_merged_pr() {
+  local case_dir rc branch_head
+  case_dir=$(make_case sweep-landed-non-task-pr)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "main work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1:main
+  git -C "$case_dir/project" fetch -q origin
+
+  # Same shape as the case above - a branch without the fm/ prefix - except this
+  # one carries an unambiguous PR merged into the default branch, which is the
+  # second way a branch qualifies as task-associated and so deletable.
+  git -C "$case_dir/project" checkout -q -b hotfix/1.x main
+  printf 'hotfix\n' > "$case_dir/project/hotfix.txt"
+  git -C "$case_dir/project" add hotfix.txt
+  git -C "$case_dir/project" -c user.email=t@t -c user.name=t commit -q -m "hotfix"
+  git -C "$case_dir/project" checkout -q main
+  git -C "$case_dir/project" merge -q --no-ff -m "merge hotfix" hotfix/1.x
+  branch_head=$(git -C "$case_dir/project" rev-parse refs/heads/hotfix/1.x)
+  add_gh_pr_merged_for_head "$case_dir" "$branch_head" main
+
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown should succeed"
+
+  if git -C "$case_dir/project" show-ref --verify --quiet refs/heads/hotfix/1.x; then
+    fail "staleness sweep failed to delete landed non-fm branch hotfix/1.x with a merged PR into main"
+  fi
+  pass "staleness sweep deletes a landed non-fm branch whose PR merged into the default branch"
+}
+
 test_teardown_staleness_sweep_leaves_live_task_branch_alone() {
   local case_dir rc
   case_dir=$(make_case sweep-live-task-branch)
@@ -2890,6 +2951,8 @@ test_teardown_staleness_sweep_deletes_merged_local_branch
 test_teardown_staleness_sweep_leaves_unmerged_local_branch_alone
 test_teardown_staleness_sweep_deletes_squash_landed_local_branch
 test_teardown_staleness_sweep_leaves_unlanded_content_branch_alone
+test_teardown_staleness_sweep_keeps_landed_non_task_branch
+test_teardown_staleness_sweep_deletes_landed_non_task_branch_with_merged_pr
 test_teardown_staleness_sweep_leaves_live_task_branch_alone
 test_teardown_staleness_sweep_leaves_worktree_checked_out_branch_alone
 test_teardown_staleness_sweep_prunes_missing_worktree_registration

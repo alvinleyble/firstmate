@@ -2262,6 +2262,11 @@ teardown_project_staleness_sweep() {
   # can't prove landing, work_is_landed's squash-safe content/PR test decides.
   # Hard Rule 3: a branch whose content cannot be proven landed is left alone;
   # any failure to determine merged state means keep the branch, never delete it.
+  # Landing alone does not authorize deletion: only a task-associated branch is
+  # ever deleted - one named with the fleet's fm/ task-branch prefix, or one with
+  # an unambiguous PR merged into the default branch. A landed branch that is
+  # neither (a foreign release branch whose commits were backported, say) is
+  # reported and left for the owner to remove by hand.
   all_local_branches=$(git -C "$project" for-each-ref --format='%(refname:short)' refs/heads 2>/dev/null || true)
   if [ -n "$all_local_branches" ]; then
     while IFS= read -r b; do
@@ -2283,6 +2288,15 @@ teardown_project_staleness_sweep() {
         landed=1
       fi
       [ "$landed" -eq 1 ] || continue
+      case "$b" in
+        fm/*) ;;
+        *)
+          if ! pr_is_merged "$project" "$b" "$branch_commit" ""; then
+            echo "teardown: local branch $b appears fully landed in $def_branch but is not a task branch; leaving it alone (safe to remove by hand with: git -C \"$project\" branch -D \"$b\")"
+            continue
+          fi
+          ;;
+      esac
       # -d refuses a non-ancestor tip (which is exactly what a squash-landed
       # branch is), so the fallback to -D here is safe: landing was already
       # independently proven above, not assumed.
