@@ -20,9 +20,10 @@ Drive the post-landing merge, project cleanup, repo and backlog staleness sweep,
 
 ## 2. Land the change
 
-1. If the PR is already merged on GitHub or landed on the default branch, proceed directly to cleanup.
-2. Otherwise, merge the PR using `bin/fm-pr-merge.sh <task-id> <pr-url> -- --merge --delete-branch`.
-3. If `fm-pr-merge.sh` returns non-zero, verify whether the PR was already merged before treating it as an error.
+1. If the task's delivery mode is `local-only`, there is no PR: merge the ready branch with `bin/fm-merge-local.sh <task-id>` and report the outcome using `AGENTS.md` section 7's local-only ready-signal contract, then proceed to cleanup.
+2. Otherwise, if the PR is already merged on GitHub or landed on the default branch, proceed directly to cleanup.
+3. Otherwise, merge the PR using `bin/fm-pr-merge.sh <task-id> <pr-url> -- --merge --delete-branch`.
+4. If `fm-pr-merge.sh` returns non-zero, verify whether the PR was already merged before treating it as an error.
 
 ## 3. Post-landing cleanup and repo staleness sweep
 
@@ -40,7 +41,7 @@ Drive the post-landing merge, project cleanup, repo and backlog staleness sweep,
 ## 5. Verify and report clean state
 
 1. Verify that the project checkout is clean on the default branch with no dangling task worktrees or leftover merged feature branches.
-2. Report the outcome to the captain using the outcome language required by `AGENTS.md` section 9.
+2. Report the outcome to the captain using the outcome language required by `AGENTS.md` section 9; for a `local-only` task, explicitly say there is no PR and that the change is merged to local main, per section 7 - a silent local merge reads as a failed wrap-up even when it succeeded.
 3. Translate internal mechanics into plain captain-facing outcomes: do not mention worktrees, task IDs, teardown scripts, metadata files, or status records.
 4. Confirm in one concise message that the change is merged, database migrations and edge functions are up to date (when applicable), the local repository is synced, and temporary resources are cleaned up.
 5. If any backlog items were closed or flagged as superseded in step 4, include them clearly in that outcome message.
