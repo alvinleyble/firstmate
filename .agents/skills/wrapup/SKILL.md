@@ -1,7 +1,7 @@
 ---
 name: wrapup
 description: >-
-  Merge a landed PR, run post-landing project cleanup, sweep stale branches, worktrees, and superseded backlog items, and report a clean outcome when the captain says "wrap up", "merge and wrap up", or invokes /wrapup after testing and confirming a work slice.
+  Merge a landed PR or approved local-only branch, run post-landing project cleanup, sweep stale branches, worktrees, and superseded backlog items, and report a clean outcome when the captain says "wrap up", "merge and wrap up", or invokes /wrapup after testing and confirming a work slice.
 user-invocable: true
 metadata:
   internal: true
