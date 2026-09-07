@@ -113,3 +113,4 @@ The shared no-mistakes gate refusal for fleet lifecycle entrypoints is summarize
 | `fm-public-followup-lib.sh` | Shared relay-activation gate, O(1) presence checks, and private transport paths for promised public replies |
 | `fm-public-followup.sh`  | Reconcile typed terminal work results into a public commitment and deliver its final reply once |
 | `fm-public-followup-emit.sh` | Report one typed terminal work result into the home that owes the public reply    |
+| `fm-personal-skill-sync.sh` | Idempotently install or refresh one captain-personal SKILL.md across every supported harness's own skill-discovery mechanism present on this machine (docs/personal-skills.md) |

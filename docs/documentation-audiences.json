@@ -273,6 +273,10 @@
       "audience": "operator-current"
     },
     {
+      "path": "docs/personal-skills.md",
+      "audience": "operator-current"
+    },
+    {
       "path": "docs/remote-secondmates.md",
       "audience": "operator-current"
     },
