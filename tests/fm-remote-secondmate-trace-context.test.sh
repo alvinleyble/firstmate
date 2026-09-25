@@ -82,7 +82,7 @@ case "\${1:-}" in
     esac
     exit 0
     ;;
-  capture-pane) printf '\n'; exit 0 ;;
+  capture-pane) printf '❯\n'; exit 0 ;;
   send-keys) exit 0 ;;
   kill-window) rm -f -- "\$state"; exit 0 ;;
   list-panes) printf 'codex\n'; exit 0 ;;
@@ -92,15 +92,6 @@ SH
 chmod +x "$REMOTE_ROOT/bin/tmux"
 install_remote_herdr_fixture "$REMOTE_ROOT" "$HERDR_STATE" "$HERDR_LOG" \
   "$TMP_ROOT/herdr-send-fail" "$TMP_ROOT/herdr.sock"
-# The remote worker execs the staged command with a sanitized child PATH
-# (fm_remote_job_build_child_path: "$REMOTE_ROOT/bin:<operator dirs>"), which
-# never sees this test process's own PATH, so the secondmate's harness CLI
-# (fm-spawn.sh's pre-flight `command -v` gate) has to be reachable from there.
-cat > "$REMOTE_ROOT/bin/codex" <<'SH'
-#!/usr/bin/env bash
-exit 0
-SH
-chmod +x "$REMOTE_ROOT/bin/codex"
 git -C "$REMOTE_ROOT" init -q -b main
 git -C "$REMOTE_ROOT" config user.email test@example.com
 git -C "$REMOTE_ROOT" config user.name Test
@@ -161,8 +152,14 @@ freeze_parent_session() {
 remote_injected_traceparent() {
   sed -n 's/.*export TRACEPARENT=\([0-9a-f-]*\).*/\1/p' "$HERDR_LOG" | tail -1
 }
+remote_staged_launch() {
+  local staged
+  staged=$(sed -n "s/^pane send-text [^ ]* \\. '\([^']*\)' --session [^ ]*\$/\1/p" "$HERDR_LOG" | tail -1)
+  [ -n "$staged" ] && [ -f "$staged" ] || return 1
+  cat "$staged"
+}
 remote_launch_snapshot() {
-  grep -o 'FM_TRACE_CONTEXT=[a-z]*' "$HERDR_LOG" | tail -1 | cut -d= -f2
+  remote_staged_launch | grep -o 'FM_TRACE_CONTEXT=[a-z]*' | tail -1 | cut -d= -f2
 }
 meta_traceparent() { sed -n 's/^traceparent=//p' "$1"; }
 
@@ -215,7 +212,7 @@ assert_present "$REMOTE_HOME/config/trace-context" \
   "an enabled remote launch did not inherit the enablement flag into the remote home"
 GOTMP_LINE=$(grep -n 'export GOTMPDIR=' "$HERDR_LOG" | tail -1 | cut -d: -f1)
 TP_LINE=$(grep -n 'export TRACEPARENT=' "$HERDR_LOG" | tail -1 | cut -d: -f1)
-LAUNCH_LINE=$(grep -n 'FM_TRACE_CONTEXT=' "$HERDR_LOG" | tail -1 | cut -d: -f1)
+LAUNCH_LINE=$(grep -n "^pane send-text [^ ]* \\. '.*' --session " "$HERDR_LOG" | tail -1 | cut -d: -f1)
 [ -n "$GOTMP_LINE" ] && [ -n "$TP_LINE" ] && [ -n "$LAUNCH_LINE" ] \
   || fail "remote pane log missing GOTMPDIR/TRACEPARENT/launch lines"
 [ "$TP_LINE" -gt "$GOTMP_LINE" ] \
