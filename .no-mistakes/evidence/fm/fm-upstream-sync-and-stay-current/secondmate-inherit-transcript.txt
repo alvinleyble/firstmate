@@ -1,0 +1,48 @@
+$ ls sm-home/config   # before
+$ fm-config-push.sh  (primary home has config/merge-passphrases)
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+config-push: <tmp>/primary -> live secondmate homes
+secondmate sm1 (/private<tmp>/sm-home):
+  crew-dispatch.json: unchanged
+  crew-harness: unchanged
+  backlog-backend: unchanged
+  backend: unchanged
+  herdr-presentation-spaces: unchanged
+  startup-memory-budget: unchanged
+  trace-context: unchanged - session-scoped
+  launch-env-allowlist: unchanged
+  claude-permission-mode: unchanged
+  lavish-axi-host: unchanged
+  merge-passphrases: pushed
+  data/captain-shared.md: unchanged
+exit=0
+$ cmp primary/config/merge-passphrases sm-home/config/merge-passphrases
+identical
+$ grep -r test-word-alpha sm-home/state (reread instructions must not inline the file)
+(no digest in any reread instruction)
+$ rm primary/config/merge-passphrases; fm-config-push.sh
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+config-push: <tmp>/primary -> live secondmate homes
+secondmate sm1 (/private<tmp>/sm-home):
+  crew-dispatch.json: unchanged
+  crew-harness: unchanged
+  backlog-backend: unchanged
+  backend: unchanged
+  herdr-presentation-spaces: unchanged
+  startup-memory-budget: unchanged
+  trace-context: unchanged - session-scoped
+  launch-env-allowlist: unchanged
+  claude-permission-mode: unchanged
+  lavish-axi-host: unchanged
+  merge-passphrases: pushed - mirrored primary absence
+  data/captain-shared.md: unchanged
+exit=0
+$ ls sm-home/config   # after removal
+$ stub backend invocations:
+(none)

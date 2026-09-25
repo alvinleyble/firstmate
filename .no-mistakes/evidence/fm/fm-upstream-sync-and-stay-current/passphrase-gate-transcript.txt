@@ -1,0 +1,391 @@
+=== S1 no config file -> ungated merge into main (upstream behaviour)
+--- config/merge-passphrases:
+--- exit code: 0
+--- stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+--- stdout:
+armed: state/task-x1.check.sh
+verified: https://github.com/example/repo/pull/94 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+--- forge merge calls:
+pr merge 94 --repo example/repo --match-head-commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --squash
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S2 gated main, no passphrase -> refuse
+--- config/merge-passphrases:
+* main sha256:1a0745…(redacted in transcript)
+--- exit code: 1
+--- stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: merge refused: merging into 'main' requires the captain's passphrase for that branch; ask the captain, then pass --passphrase <word> or set FM_MERGE_PASSPHRASE
+--- stdout:
+armed: state/task-x1.check.sh
+--- forge merge calls:
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S3 gated main, wrong --passphrase -> refuse
+--- config/merge-passphrases:
+* main sha256:1a0745…(redacted in transcript)
+--- exit code: 1
+--- stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: merge refused: the passphrase supplied for merging into 'main' does not match
+--- stdout:
+armed: state/task-x1.check.sh
+--- forge merge calls:
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S4 gated main, right --passphrase + -- --delete-branch (wrapup form) -> merge, word not forwarded
+--- config/merge-passphrases:
+* main sha256:1a0745…(redacted in transcript)
+--- exit code: 0
+--- stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+verified: the captain passphrase for base main matches
+--- stdout:
+armed: state/task-x1.check.sh
+verified: https://github.com/example/repo/pull/94 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+--- forge merge calls:
+pr merge 94 --repo example/repo --match-head-commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --squash --delete-branch
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S5 gated main, FM_MERGE_PASSPHRASE env -> merge
+--- config/merge-passphrases:
+* main sha256:1a0745…(redacted in transcript)
+--- exit code: 0
+--- stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+verified: the captain passphrase for base main matches
+--- stdout:
+armed: state/task-x1.check.sh
+verified: https://github.com/example/repo/pull/94 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+--- forge merge calls:
+pr merge 94 --repo example/repo --match-head-commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --squash
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S6 adversarial: --passphrase placed AFTER -- is not honoured -> refuse (and nothing merged)
+--- config/merge-passphrases:
+* main sha256:1a0745…(redacted in transcript)
+--- exit code: 1
+--- stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: merge refused: merging into 'main' requires the captain's passphrase for that branch; ask the captain, then pass --passphrase <word> or set FM_MERGE_PASSPHRASE
+--- stdout:
+armed: state/task-x1.check.sh
+--- forge merge calls:
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S7 base dev not listed -> ungated merge
+--- config/merge-passphrases:
+* main sha256:1a0745…(redacted in transcript)
+--- exit code: 0
+--- stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+--- stdout:
+armed: state/task-x1.check.sh
+verified: https://github.com/example/repo/pull/94 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+--- forge merge calls:
+pr merge 94 --repo example/repo --match-head-commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --squash
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S8a repo line (case-insensitive) wins over *: * word refused
+--- config/merge-passphrases:
+* main sha256:1a0745…(redacted in transcript)
+EXAMPLE/Repo main sha256:a8e654…(redacted in transcript)
+--- exit code: 1
+--- stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: merge refused: the passphrase supplied for merging into 'main' does not match
+--- stdout:
+armed: state/task-x1.check.sh
+--- forge merge calls:
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S8b repo line word accepted
+--- config/merge-passphrases:
+* main sha256:1a0745…(redacted in transcript)
+EXAMPLE/Repo main sha256:a8e654…(redacted in transcript)
+--- exit code: 0
+--- stderr:
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+verified: the captain passphrase for base main matches
+--- stdout:
+armed: state/task-x1.check.sh
+verified: https://github.com/example/repo/pull/94 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+--- forge merge calls:
+pr merge 94 --repo example/repo --match-head-commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --squash
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S9 adversarial: duplicate '* main' lines refuse even a merge into dev
+--- config/merge-passphrases:
+* main sha256:1a0745…(redacted in transcript)
+* main sha256:a8e654…(redacted in transcript)
+--- exit code: 1
+--- stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: merge refused: config/merge-passphrases line 2 repeats a repository and base branch listed earlier
+--- stdout:
+armed: state/task-x1.check.sh
+--- forge merge calls:
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S10a adversarial: '* main' vs '* MAIN' are different branches (branch is case-sensitive) -> allowed
+--- config/merge-passphrases:
+example/repo main sha256:1a0745…(redacted in transcript)
+* main sha256:1a0745…(redacted in transcript)
+* MAIN sha256:a8e654…(redacted in transcript)
+--- exit code: 0
+--- stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+verified: the captain passphrase for base main matches
+--- stdout:
+armed: state/task-x1.check.sh
+verified: https://github.com/example/repo/pull/94 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+--- forge merge calls:
+pr merge 94 --repo example/repo --match-head-commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --squash
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S10b adversarial: repo key duplicate differing only by case -> refuse
+--- config/merge-passphrases:
+Example/Repo main sha256:1a0745…(redacted in transcript)
+example/REPO main sha256:a8e654…(redacted in transcript)
+--- exit code: 1
+--- stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: merge refused: config/merge-passphrases line 2 repeats a repository and base branch listed earlier
+--- stdout:
+armed: state/task-x1.check.sh
+--- forge merge calls:
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S11 malformed line refuses every merge (even ungated dev)
+--- config/merge-passphrases:
+# comment ok
+* main sha256:1234
+--- exit code: 1
+--- stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: merge refused: config/merge-passphrases line 2 is malformed; expected '<owner/repo or *> <base-branch> sha256:<64 hex digits>'
+--- stdout:
+armed: state/task-x1.check.sh
+--- forge merge calls:
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S12 unreadable file refuses every merge
+--- config/merge-passphrases:
+--- exit code: 1
+--- stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: merge refused: config/merge-passphrases exists but cannot be read
+--- stdout:
+armed: state/task-x1.check.sh
+--- forge merge calls:
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S13 adversarial: merge-passphrases is a directory -> refuse
+--- config/merge-passphrases:
+--- exit code: 1
+--- stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: merge refused: config/merge-passphrases exists but cannot be read
+--- stdout:
+armed: state/task-x1.check.sh
+--- forge merge calls:
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S14 adversarial: dangling symlink -> refuse (not treated as absent)
+--- config/merge-passphrases:
+--- exit code: 1
+--- stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: merge refused: config/merge-passphrases exists but cannot be read
+--- stdout:
+armed: state/task-x1.check.sh
+--- forge merge calls:
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S15 --passphrase=word form rejected
+--- config/merge-passphrases:
+* main sha256:1a0745…(redacted in transcript)
+--- exit code: 2
+--- stderr:
+error: --passphrase requires a separate value argument
+--- stdout:
+--- forge merge calls:
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S16a GitLab target_branch staging gated, no word -> refuse
+--- config/merge-passphrases:
+group/subgroup/project staging sha256:a8e654…(redacted in transcript)
+--- exit code: 1
+--- stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://gitlab.example/group/subgroup/project/-/merge_requests/7 is open and mergeable, with a successful pipeline at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: merge refused: merging into 'staging' requires the captain's passphrase for that branch; ask the captain, then pass --passphrase <word> or set FM_MERGE_PASSPHRASE
+--- stdout:
+armed: state/task-x1.check.sh
+--- forge merge calls:
+(none)
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+
+=== S16b GitLab right word -> merge
+--- config/merge-passphrases:
+group/subgroup/project staging sha256:a8e654…(redacted in transcript)
+--- exit code: 0
+--- stderr:
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+verified: https://gitlab.example/group/subgroup/project/-/merge_requests/7 is open and mergeable, with a successful pipeline at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+verified: the captain passphrase for base staging matches
+--- stdout:
+armed: state/task-x1.check.sh
+--- forge merge calls:
+GITLAB_HOST=gitlab.example mr merge 7 -R https://gitlab.example/group/subgroup/project --sha aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --yes
+no leak of test-word-alpha word or digest in output/forge log
+no leak of test-word-beta word or digest in output/forge log
+

@@ -1,0 +1,14 @@
+$ ls secondmate-home/config  (before push)
+$ fm-config-push.sh  (primary gates main)
+config-push: /var/folders/qh/0zxh5n3s0058l6582r68pjn80000gn/T/tmp.7DhxlE9tVt/primary -> live secondmate homes
+  merge-passphrases: pushed
+$ fm-pr-merge.sh in the SECONDMATE home, PR into main, no passphrase
+exit=1
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: merge refused: merging into 'main' requires the captain's passphrase for that branch; ask the captain, then pass --passphrase <word> or set FM_MERGE_PASSPHRASE
+forge merge calls: (none)
+$ same, with --passphrase (placeholder word)
+exit=0
+verified: https://github.com/example/repo/pull/94 is open and mergeable, with every required check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+verified: the captain passphrase for base main matches
+pr merge 94 --repo example/repo --match-head-commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --squash
