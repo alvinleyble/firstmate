@@ -306,6 +306,7 @@ test_propagate_lib() {
   printf 'tmux\n' > "$src/backend"
   : > "$src/herdr-presentation-spaces"
   : > "$src/trace-context"
+  printf '* main sha256:%064d\n' 0 > "$src/merge-passphrases"
   stdout="$d/clean-copy.out"
   stderr="$d/clean-copy.err"
   propagate_inheritable_config "$src" "$dest" >"$stdout" 2>"$stderr" || fail "propagate returned non-zero"
@@ -316,6 +317,7 @@ test_propagate_lib() {
   [ "$(cat "$dest/backlog-backend")" = manual ] || fail "backlog-backend not propagated"
   [ "$(cat "$dest/backend")" = tmux ] || fail "backend not propagated"
   [ -f "$dest/herdr-presentation-spaces" ] || fail "herdr-presentation-spaces not propagated"
+  cmp -s "$src/merge-passphrases" "$dest/merge-passphrases" || fail "merge-passphrases not propagated"
   printf 'herdr\n' > "$dest/backend"
   propagate_inheritable_config "$src" "$dest"
   [ "$(cat "$dest/backend")" = tmux ] || fail "primary backend did not overwrite a divergent destination"
@@ -356,7 +358,7 @@ test_propagate_lib() {
   # 4. removing the source mirrors absence downstream (primary-authoritative)
   printf 'herdr\n' > "$dest/backend"
   rm -f "$src/crew-dispatch.json" "$src/crew-harness" "$src/backlog-backend" \
-    "$src/backend" "$src/herdr-presentation-spaces" "$src/trace-context"
+    "$src/backend" "$src/herdr-presentation-spaces" "$src/trace-context" "$src/merge-passphrases"
   propagate_inheritable_config "$src" "$dest"
   [ -e "$dest/crew-dispatch.json" ] && fail "dispatch profile absence not mirrored downstream"
   [ -e "$dest/crew-harness" ] && fail "absence not mirrored downstream"
@@ -364,6 +366,7 @@ test_propagate_lib() {
   [ -e "$dest/backend" ] && fail "backend absence not mirrored downstream"
   [ -e "$dest/herdr-presentation-spaces" ] && fail "herdr-presentation-spaces absence not mirrored downstream"
   [ -e "$dest/trace-context" ] && fail "trace-context absence not mirrored downstream"
+  [ -e "$dest/merge-passphrases" ] && fail "merge-passphrases absence not mirrored downstream"
 
   rm -f "$dest/crew-harness"
   ln -s "$d/missing-target" "$dest/crew-harness"
@@ -2429,6 +2432,19 @@ test_config_reread_skips_when_unchanged_and_reads_after_push() {
     "instruction must not append a byte to a non-newline-terminated destination"
   assert_not_contains "$(cat "$instr")" "primary-source-only" \
     "instruction must not fall back to primary source bytes"
+  printf '* main sha256:%064d\n' 0 > "$w/sm/config/merge-passphrases"
+  printf '%s\n' $'merge-passphrases\tpushed\t' > "$w/passphrases-only.report"
+  fm_config_write_reread_instruction "$w/sm" "$w/passphrases-only.report" "$w/sm/state/.fm-passphrases-only" \
+    && fail "a merge-passphrases change alone must not produce a reread instruction"
+  [ ! -e "$w/sm/state/.fm-passphrases-only" ] || fail "merge-passphrases reread instruction was written"
+  printf '%s\n' $'crew-harness\tpushed\t' $'merge-passphrases\tpushed\t' > "$w/passphrases-mixed.report"
+  fm_config_write_reread_instruction "$w/sm" "$w/passphrases-mixed.report" "$instr" \
+    || fail "mixed instruction write failed"
+  assert_not_contains "$(cat "$instr")" "merge-passphrases" \
+    "reread instruction must never inline merge-passphrases"
+  assert_not_contains "$(cat "$instr")" "sha256:" \
+    "reread instruction must never inline a passphrase digest"
+  rm -f "$w/sm/config/merge-passphrases"
   : > "$w/sm/config/crew-harness"
   fm_config_write_reread_instruction "$w/sm" "$report" "$instr" \
     || fail "empty destination instruction write failed"

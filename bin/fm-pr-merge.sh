@@ -548,10 +548,11 @@ merge_passphrase_lower() {
 # validated even when it names another branch, so a typo refuses rather than
 # silently leaving a branch ungated. A repository-specific line wins over a "*"
 # line for the same base, and two lines for the same repository and base refuse
-# as ambiguous. Never prints the stored digest or the expected word.
+# every merge as ambiguous. Never prints the stored digest or the expected word.
 require_merge_passphrase() {  # <base-branch>
-  local base=$1 line lineno=0 repo branch digest extra
-  local repo_digest='' any_digest='' repo_count=0 any_count=0 expected supplied
+  local base=$1 line lineno=0 repo branch digest extra key seen='
+'
+  local repo_digest='' any_digest='' expected supplied
   local want_repo
   [ -e "$MERGE_PASSPHRASES" ] || [ -L "$MERGE_PASSPHRASES" ] || return 0
   if [ ! -f "$MERGE_PASSPHRASES" ] || [ ! -r "$MERGE_PASSPHRASES" ]; then
@@ -575,23 +576,29 @@ LINE
       echo "error: merge refused: config/merge-passphrases line $lineno is malformed; expected '<owner/repo or *> <base-branch> sha256:<64 hex digits>'" >&2
       return 1
     fi
+    repo=$(merge_passphrase_lower "$repo")
+    key="$repo $branch"
+    case "$seen" in
+      *"
+$key
+"*)
+        echo "error: merge refused: config/merge-passphrases line $lineno repeats a repository and base branch listed earlier" >&2
+        return 1
+        ;;
+    esac
+    seen="$seen$key
+"
     [ "$branch" = "$base" ] || continue
     digest=$(merge_passphrase_lower "${digest#sha256:}")
     if [ "$repo" = '*' ]; then
-      any_count=$((any_count + 1))
       any_digest=$digest
-    elif [ "$(merge_passphrase_lower "$repo")" = "$want_repo" ]; then
-      repo_count=$((repo_count + 1))
+    elif [ "$repo" = "$want_repo" ]; then
       repo_digest=$digest
     fi
   done < "$MERGE_PASSPHRASES"
-  if [ "$repo_count" -gt 1 ] || { [ "$repo_count" -eq 0 ] && [ "$any_count" -gt 1 ]; }; then
-    echo "error: merge refused: config/merge-passphrases lists more than one passphrase for base '$base'" >&2
-    return 1
-  fi
-  if [ "$repo_count" -eq 1 ]; then
+  if [ -n "$repo_digest" ]; then
     expected=$repo_digest
-  elif [ "$any_count" -eq 1 ]; then
+  elif [ -n "$any_digest" ]; then
     expected=$any_digest
   else
     return 0

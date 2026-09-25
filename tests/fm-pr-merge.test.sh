@@ -3372,6 +3372,29 @@ test_passphrase_gate_refuses_a_malformed_file() {
   expect_code 1 "$rc" "passphrase-duplicate: two words for one base must refuse"
   assert_no_grep 'pr merge' "$case_dir/gh.log" "passphrase-duplicate: merged despite an ambiguous file"
   assert_no_passphrase_leak "$case_dir" passphrase-duplicate
+
+  case_dir=$(passphrase_github_case passphrase-duplicate-other-base dev)
+  write_passphrases "$case_dir" "Example/Repo staging $PASS_WORD_A" "example/repo staging $PASS_WORD_B"
+  set +e
+  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/98 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+  expect_code 1 "$rc" "passphrase-duplicate-other-base: a duplicate for another base must still refuse"
+  assert_grep 'line 2 repeats' "$case_dir/stderr" "passphrase-duplicate-other-base: the repeated line was not named"
+  assert_no_grep 'pr merge' "$case_dir/gh.log" "passphrase-duplicate-other-base: merged despite an ambiguous file"
+  assert_no_passphrase_leak "$case_dir" passphrase-duplicate-other-base
+
+  case_dir=$(passphrase_github_case passphrase-duplicate-shadowed-any main)
+  write_passphrases "$case_dir" "example/repo main $PASS_WORD_A" "* main $PASS_WORD_A" "* main $PASS_WORD_B"
+  set +e
+  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/98 \
+    --passphrase "$PASS_WORD_A" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+  expect_code 1 "$rc" "passphrase-duplicate-shadowed-any: duplicate '*' lines must refuse even behind a repository line"
+  assert_no_grep 'pr merge' "$case_dir/gh.log" "passphrase-duplicate-shadowed-any: merged despite an ambiguous file"
+  assert_no_passphrase_leak "$case_dir" passphrase-duplicate-shadowed-any
   pass "fm-pr-merge refuses every merge while config/merge-passphrases is malformed or ambiguous"
 }
 

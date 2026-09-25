@@ -611,7 +611,7 @@ Portable shard evidence and coverage rules are in [fm-test-portable-shards.md](f
 ## Merge passphrases (config/merge-passphrases)
 
 This optional file makes chosen base branches require the captain's passphrase before `bin/fm-pr-merge.sh` merges a pull or merge request into them.
-It is LOCAL, gitignored, and not inherited by secondmate homes.
+It is LOCAL, gitignored, and inherited by secondmate homes, so a merge a secondmate performs into a gated base needs the same passphrase.
 An absent file gates nothing, so merges behave exactly as they do without it.
 
 Each non-blank line names a repository, a base branch, and the SHA-256 digest of the passphrase, and `#` starts a comment:
