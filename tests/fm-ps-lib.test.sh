@@ -4,8 +4,8 @@
 #
 # Every case runs the shim against a fabricated /proc (FM_PROC_ROOT_OVERRIDE)
 # with FM_PS_FORCE_PROC=1, so the suite proves the same reads on every host.
-# The Windows-boundary cases replace the PowerShell parent-chain reader with a
-# stub (FM_PS_WINDOWS_CHAIN_CMD) that also counts how often it is asked, and
+# The Windows-boundary cases replace the PowerShell process-table reader with a
+# stub (FM_PS_WINDOWS_TABLE_CMD) that also counts how often it is asked, and
 # the last case runs the real session-lock identity through the shim, which is
 # the read that made every Windows session read-only before it existed.
 # shellcheck disable=SC2016 # single quotes are deliberate: $0 and $$ expand inside the child shell
@@ -49,16 +49,17 @@ new_proc() {  # <name> -> echoes a proc root with a btime line
   printf '%s\n' "$root"
 }
 
-# write_chain <file> <line>...: the stub the shim calls for a Windows chain.
-write_chain() {
+# write_table <file> <line>...: the stub the shim calls for the Windows
+# process table.
+write_table() {
   local stub=$1 calls=$1.calls
   shift
   {
     printf '#!/usr/bin/env bash\n'
     printf 'printf x >> %q\n' "$calls"
-    printf 'cat <<'"'"'CHAIN'"'"'\n'
+    printf 'cat <<'"'"'TABLE'"'"'\n'
     printf '%s\n' "$@"
-    printf 'CHAIN\n'
+    printf 'TABLE\n'
   } > "$stub"
   chmod +x "$stub"
 }
@@ -90,6 +91,8 @@ test_fields_are_read_from_proc() {
   assert_equals $'7 3\n42 7' "$out" "repeated -o and a comma pid list"
   out=$(shim "$root" 'ps -A -o pid=' | sort -n | tr '\n' ' ')
   assert_equals "7 42 " "$out" "-A lists every process"
+  out=$(shim "$root" 'ps -axo pid=,state=' | sort -n | tr '\n' ' ')
+  assert_equals "7 S 42 S " "$out" "-axo lists every process"
   out=$(shim "$root" 'ps -u 197609 -o pid=' | sort -n | tr '\n' ' ')
   assert_equals "7 42 " "$out" "-u keeps that account's processes"
   out=$(shim "$root" 'ps -u 1 -o pid=') && rc=0 || rc=$?
@@ -99,26 +102,72 @@ test_fields_are_read_from_proc() {
   pass "fm-ps-lib answers procps field reads from /proc"
 }
 
+test_other_forms_go_to_the_native_ps() {
+  local root fakebin form out
+  root=$(new_proc native)
+  proc_entry "$root" 42 7 /usr/bin/bash 900 5000 bash
+  fakebin=$(fm_fakebin "$TMP_ROOT/native/bin")
+  printf '#!/bin/sh\necho "native $*"\n' > "$fakebin/ps"
+  chmod +x "$fakebin/ps"
+  # -Eww appends the environment and %cpu is a measurement; /proc answers
+  # neither, so both, like every form outside the supported set, stay native.
+  for form in '-Eww -o command= -p 42' '-A -o %cpu=' '-o tpgid= -p 42' \
+    '-o pid=PID -p 42' '-ax -o pid=' '-p42 -o pid=' '-t cons0 -o pid='; do
+    out=$(PATH="$fakebin:$PATH" shim "$root" "ps $form")
+    assert_equals "native $form" "$out" "ps $form is answered by the native ps"
+  done
+  pass "fm-ps-lib hands every unsupported option and field to the native ps"
+}
+
 test_windows_parent_resolves_through_shell_launchers() {
   local root stub out calls
   root=$(new_proc boundary)
   # Claude's tool shell: an MSYS bash whose parent is the native Git launcher.
   proc_entry "$root" 50 1 /usr/bin/bash 500 9000 bash -c 'fm-lock'
   proc_entry "$root" 77 70 /c/Users/x/.local/bin/claude 300 4000 claude
-  stub="$TMP_ROOT/boundary/chain"
-  write_chain "$stub" \
+  stub="$TMP_ROOT/boundary/table"
+  write_table "$stub" \
     $'500\t400\tbash.exe\t3000' \
     $'400\t300\tbash.exe\t2000' \
     $'300\t200\tclaude.exe\t1000'
-  out=$(FM_PS_WINDOWS_CHAIN_CMD="$stub" shim "$root" 'ps -o ppid= -p 50')
+  out=$(FM_PS_WINDOWS_TABLE_CMD="$stub" shim "$root" 'ps -o ppid= -p 50')
   assert_equals "77" "$out" "a parent-1 shell resolves to the Claude process past the launcher"
-  out=$(FM_PS_WINDOWS_CHAIN_CMD="$stub" shim "$root" 'ps -o ppid= -p 50')
+  out=$(FM_PS_WINDOWS_TABLE_CMD="$stub" shim "$root" 'ps -o ppid= -p 50')
   assert_equals "77" "$out" "the cached answer is the same"
   calls=$(cat "$stub.calls")
-  assert_equals "x" "$calls" "the Windows chain is read once per process start"
-  out=$(FM_PS_WINDOWS_CHAIN_CMD="$stub" shim "$root" 'fm_ps_pid_from_winpid 300')
+  assert_equals "x" "$calls" "the Windows table is read once per process start"
+  out=$(FM_PS_WINDOWS_TABLE_CMD="$stub" shim "$root" 'fm_ps_pid_from_winpid 300')
   assert_equals "77" "$out" "a Windows pid maps to its MSYS pid"
   pass "fm-ps-lib resolves a native parent through Git Bash launchers"
+}
+
+test_all_process_scan_reads_the_windows_table_once() {
+  local root stub out calls
+  root=$(new_proc scan)
+  # Three tool and pane shells, each with MSYS parent 1, under two harnesses.
+  proc_entry "$root" 50 1 /usr/bin/bash 500 9000 bash
+  proc_entry "$root" 51 1 /usr/bin/bash 510 9100 bash
+  proc_entry "$root" 52 1 /usr/bin/bash 520 9200 bash
+  proc_entry "$root" 77 70 /c/Users/x/.local/bin/claude 300 4000 claude
+  proc_entry "$root" 88 80 /c/Users/x/.local/bin/claude 600 4500 claude
+  stub="$TMP_ROOT/scan/table"
+  write_table "$stub" \
+    $'500\t400\tbash.exe\t3000' \
+    $'510\t410\tbash.exe\t3100' \
+    $'520\t600\tbash.exe\t3200' \
+    $'400\t300\tbash.exe\t2000' \
+    $'410\t300\tcmd.exe\t2100' \
+    $'300\t200\tclaude.exe\t1000' \
+    $'600\t250\tclaude.exe\t1500'
+  out=$(FM_PS_WINDOWS_TABLE_CMD="$stub" shim "$root" 'ps -A -o pid= -o ppid=' | sort -n | tr '\n' ' ')
+  assert_equals "50 77 51 77 52 88 77 70 88 80 " "$out" "every parent-1 shell resolves to its own harness"
+  calls=$(cat "$stub.calls")
+  assert_equals "x" "$calls" "one all-process scan reads the Windows table once"
+  out=$(FM_PS_WINDOWS_TABLE_CMD="$stub" shim "$root" 'ps -eo pid=,ppid=' | sort -n | tr '\n' ' ')
+  assert_equals "50 77 51 77 52 88 77 70 88 80 " "$out" "a later scan answers the same"
+  calls=$(cat "$stub.calls")
+  assert_equals "x" "$calls" "a later scan answers from the per-process cache"
+  pass "fm-ps-lib resolves every parent-1 process of a scan from one Windows table read"
 }
 
 test_windows_parent_never_crosses_other_processes() {
@@ -126,32 +175,32 @@ test_windows_parent_never_crosses_other_processes() {
   root=$(new_proc foreign)
   proc_entry "$root" 50 1 /usr/bin/bash 500 9000 bash
   proc_entry "$root" 77 70 /c/Users/x/.local/bin/claude 300 4000 claude
-  stub="$TMP_ROOT/foreign/chain"
+  stub="$TMP_ROOT/foreign/table"
   # A native multiplexer sits between the shell and an unrelated Claude.
-  write_chain "$stub" \
+  write_table "$stub" \
     $'500\t400\tbash.exe\t3000' \
     $'400\t300\therdr.exe\t2000' \
     $'300\t200\tclaude.exe\t1000'
-  out=$(FM_PS_WINDOWS_CHAIN_CMD="$stub" shim "$root" 'ps -o ppid= -p 50')
+  out=$(FM_PS_WINDOWS_TABLE_CMD="$stub" shim "$root" 'ps -o ppid= -p 50')
   assert_equals "1" "$out" "a Windows-only non-shell ancestor stops the crossing"
 
   root=$(new_proc recycled)
   proc_entry "$root" 50 1 /usr/bin/bash 500 9000 bash
   proc_entry "$root" 77 70 /c/Users/x/.local/bin/claude 400 4000 claude
-  stub="$TMP_ROOT/recycled/chain"
+  stub="$TMP_ROOT/recycled/table"
   # The recorded parent pid now names a process created after the child.
-  write_chain "$stub" \
+  write_table "$stub" \
     $'500\t400\tbash.exe\t3000' \
     $'400\t200\tclaude.exe\t8000'
-  out=$(FM_PS_WINDOWS_CHAIN_CMD="$stub" shim "$root" 'ps -o ppid= -p 50')
+  out=$(FM_PS_WINDOWS_TABLE_CMD="$stub" shim "$root" 'ps -o ppid= -p 50')
   assert_equals "1" "$out" "a recycled Windows parent pid is not followed"
 
   root=$(new_proc unreadable)
   proc_entry "$root" 50 1 /usr/bin/bash 500 9000 bash
-  stub="$TMP_ROOT/unreadable/chain"
-  write_chain "$stub"
-  out=$(FM_PS_WINDOWS_CHAIN_CMD="$stub" shim "$root" 'ps -o ppid= -p 50')
-  assert_equals "1" "$out" "an unreadable chain leaves the parent at 1"
+  stub="$TMP_ROOT/unreadable/table"
+  write_table "$stub"
+  out=$(FM_PS_WINDOWS_TABLE_CMD="$stub" shim "$root" 'ps -o ppid= -p 50')
+  assert_equals "1" "$out" "an unreadable table leaves the parent at 1"
   pass "fm-ps-lib never crosses into an unrelated Windows process"
 }
 
@@ -174,8 +223,8 @@ test_session_lock_anchors_on_claude_across_the_windows_boundary() {
   root=$(new_proc session)
   proc_entry "$root" 77 70 /c/Users/x/.local/bin/claude 300 4000 claude
   proc_entry "$root" 70 1 /usr/bin/bash 200 2000 bash -l
-  stub="$TMP_ROOT/session/chain"
-  write_chain "$stub" \
+  stub="$TMP_ROOT/session/table"
+  write_table "$stub" \
     $'500\t400\tbash.exe\t3000' \
     $'400\t300\tbash.exe\t2500' \
     $'300\t200\tclaude.exe\t2000'
@@ -183,7 +232,7 @@ test_session_lock_anchors_on_claude_across_the_windows_boundary() {
   # shape Claude Code's Bash tool has on Windows, then asks the real library.
   out=$(env -u CLAUDE_CODE_SESSION_ID -u CLAUDE_PID \
     FM_PS_FORCE_PROC=1 FM_PROC_ROOT_OVERRIDE="$root" FM_PS_CLK_TCK=$TICKS \
-    FM_PS_CACHE_DIR="$root.cache" FM_PS_WINDOWS_CHAIN_CMD="$stub" \
+    FM_PS_CACHE_DIR="$root.cache" FM_PS_WINDOWS_TABLE_CMD="$stub" \
     CLAUDE_CODE_SESSION_ID=session-abc CLAUDE_PID=300 \
     bash -c '
       root=$FM_PROC_ROOT_OVERRIDE
@@ -203,7 +252,9 @@ test_session_lock_anchors_on_claude_across_the_windows_boundary() {
 }
 
 test_fields_are_read_from_proc
+test_other_forms_go_to_the_native_ps
 test_windows_parent_resolves_through_shell_launchers
+test_all_process_scan_reads_the_windows_table_once
 test_windows_parent_never_crosses_other_processes
 test_shim_stands_aside_for_another_ps
 test_session_lock_anchors_on_claude_across_the_windows_boundary

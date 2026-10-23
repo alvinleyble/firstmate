@@ -2,7 +2,8 @@
 # fm-ps-lib.sh - procps-style `ps` field selection on Git Bash/MSYS and Cygwin.
 #
 # Firstmate reads processes through `ps -o <field>= -p <pid>` and the
-# all-process forms `ps -A|-e|-ax -o ...`. Git Bash's ps is Cygwin's own, which
+# all-process forms `ps -A -o ...`, `ps -eo ...`, and `ps -axo ...`. Git Bash's
+# ps is Cygwin's own, which
 # rejects -o field selection outright, so on that platform every such read
 # fails and every caller that keys a decision on it (the session lock's harness
 # ancestry, watcher identity, teardown process groups) fails closed. Sourcing
@@ -14,31 +15,32 @@
 # other platform sourcing it defines no `ps` function.
 #
 # Supported: -o <fields> (repeatable, comma lists, every field suffixed "=" so
-# no header is printed), -p <pid[,pid...]>, -u <numeric uid>, and -A, -e, -ax,
-# -eo, -axo, -Ao for all processes; -w, -ww, -E and -Eww are accepted and
-# ignored. Fields: pid, ppid, pgid/pgrp, comm/ucomm, args/command/cmd, lstart,
-# stat/state/s, tpgid, tty/tt, uid, %cpu/pcpu (always 0.0). Anything else,
-# including -t, goes to the native ps. Values are printed space-separated, one process per
-# line; like procps the status is 1 when no selected process exists.
+# no header is printed), -p <pid[,pid...]>, -u <numeric uid>, and -A, -e, -eo,
+# -axo for all processes. Fields: pid, ppid, pgid, comm, args/command, lstart,
+# stat/state. Any other option or field, including -t, goes to the native ps.
+# Values are printed space-separated, one process per line; like procps the
+# status is 1 when no selected process exists.
 #
 # The Windows boundary: a process started by a native Windows program (Claude
 # Code's tool and hook shells, a Herdr pane shell) has MSYS parent pid 1, so a
 # parent walk stops before it reaches the harness that started it. For such a
-# process ppid resolves through the Windows parent chain (one PowerShell read,
-# cached per process start) to the nearest ancestor that has an MSYS pid,
-# passing only through Windows-only shell launchers (bash.exe, sh.exe, cmd.exe,
-# conhost.exe). Any other Windows-only ancestor, a parent created after its
-# child (a recycled Windows pid), or an unreadable chain leaves ppid at 1, so a
-# walk can stop short but never cross into an unrelated process.
+# process ppid resolves through the Windows parent chain to the nearest
+# ancestor that has an MSYS pid, passing only through Windows-only shell
+# launchers (bash.exe, sh.exe, cmd.exe, conhost.exe). The chain comes from one
+# PowerShell read of the whole Windows process table per ps call, shared by
+# every process that call lists, and each answer is cached per process start.
+# Any other Windows-only ancestor, a parent created after its child (a recycled
+# Windows pid), or an unreadable table leaves ppid at 1, so a walk can stop
+# short but never cross into an unrelated process.
 #
 # fm_ps_pid_from_winpid <winpid> prints the MSYS pid of a Windows pid (Claude
 # Code's CLAUDE_PID is one), or returns 1 when that process has none.
 #
 # Test seams: FM_PROC_ROOT_OVERRIDE replaces /proc, FM_PS_FORCE_PROC=1 enables
-# the shim on any platform, FM_PS_WINDOWS_CHAIN_CMD replaces the PowerShell
-# reader (it receives a Windows pid and prints "winpid<TAB>parent<TAB>name<TAB>
-# creation-epoch-ms" lines, the process itself first), and FM_PS_CACHE_DIR
-# replaces the per-user resolved-parent cache directory.
+# the shim on any platform, FM_PS_WINDOWS_TABLE_CMD replaces the PowerShell
+# reader (it prints one "winpid<TAB>parent<TAB>name<TAB>creation-epoch-ms" line
+# per Windows process), and FM_PS_CACHE_DIR replaces the per-user
+# resolved-parent cache directory.
 # This file is sourced by scripts and has no side effects on source beyond
 # defining functions.
 
@@ -79,8 +81,7 @@ _fm_ps_read() {  # <var> <file>
 }
 
 # Split /proc/<pid>/stat after the final ")" into _FM_PS_STAT, so index 0 is
-# the state, index 5 the terminal's foreground group, and index 19 the start
-# time in clock ticks.
+# the state and index 19 the start time in clock ticks.
 _FM_PS_STAT=()
 _fm_ps_stat() {  # <pid>
   local line
@@ -169,23 +170,20 @@ fm_ps_pid_from_winpid() {  # <winpid>
   printf '%s\n' "$_FM_PS_VALUE"
 }
 
-# Print "winpid<TAB>parent<TAB>name<TAB>creation-epoch-ms" for Windows pid $1
-# and up to seven of its ancestors, the process itself first.
-_fm_ps_windows_chain() {  # <winpid>
+# Print "winpid<TAB>parent<TAB>name<TAB>creation-epoch-ms" for every Windows
+# process.
+_fm_ps_windows_table() {
   local script encoded
-  if [ -n "${FM_PS_WINDOWS_CHAIN_CMD:-}" ]; then
-    "$FM_PS_WINDOWS_CHAIN_CMD" "$1"
+  if [ -n "${FM_PS_WINDOWS_TABLE_CMD:-}" ]; then
+    "$FM_PS_WINDOWS_TABLE_CMD"
     return
   fi
   command -v powershell.exe >/dev/null 2>&1 || return 1
   # shellcheck disable=SC2016 # PowerShell source: its $ variables are PowerShell's own.
-  script='$p = '"$1"'
-for ($i = 0; $i -lt 8 -and $p; $i++) {
-  $x = Get-CimInstance Win32_Process -Filter "ProcessId=$p" -Property ProcessId,ParentProcessId,Name,CreationDate -ErrorAction SilentlyContinue
-  if (-not $x) { break }
-  $ms = ([DateTimeOffset]$x.CreationDate).ToUnixTimeMilliseconds()
-  "{0}`t{1}`t{2}`t{3}" -f $x.ProcessId, $x.ParentProcessId, $x.Name, $ms
-  $p = $x.ParentProcessId
+  script='Get-CimInstance Win32_Process -Property ProcessId,ParentProcessId,Name,CreationDate -ErrorAction SilentlyContinue | ForEach-Object {
+  if ($_.CreationDate) {
+    "{0}`t{1}`t{2}`t{3}" -f $_.ProcessId, $_.ParentProcessId, $_.Name, ([DateTimeOffset]$_.CreationDate).ToUnixTimeMilliseconds()
+  }
 }'
   encoded=$(printf '%s' "$script" | iconv -f UTF-8 -t UTF-16LE 2>/dev/null | base64 -w 0 2>/dev/null) || return 1
   [ -n "$encoded" ] || return 1
@@ -193,13 +191,55 @@ for ($i = 0; $i -lt 8 -and $p; $i++) {
     -EncodedCommand "$encoded" 2>/dev/null | tr -d '\r'
 }
 
-# Set _FM_PS_VALUE to the MSYS pid of the nearest Windows ancestor of MSYS
-# process $1 that has one, crossing only Windows-only shell launchers, or
-# return 1 when there is none. The answer is cached per process start, because
-# a process's parent never changes.
+# The Windows process table indexed by Windows pid, with the MSYS pid of each
+# Windows pid that has one, read at most once per ps call: _FM_PS_TABLE is
+# empty until the read and then "ok" or "none".
+_FM_PS_TABLE=
+_FM_PS_WIN_PARENT=()
+_FM_PS_WIN_NAME=()
+_FM_PS_WIN_CREATED=()
+_FM_PS_WIN_MSYS=()
+
+_fm_ps_windows_table_load() {
+  local table win parent name created dir pid winpid
+  case "$_FM_PS_TABLE" in
+    ok) return 0 ;;
+    none) return 1 ;;
+  esac
+  _FM_PS_TABLE=none
+  _FM_PS_WIN_PARENT=()
+  _FM_PS_WIN_NAME=()
+  _FM_PS_WIN_CREATED=()
+  _FM_PS_WIN_MSYS=()
+  table=$(_fm_ps_windows_table) || table=
+  while IFS=$'\t' read -r win parent name created; do
+    case "$win" in '' | *[!0-9]*) continue ;; esac
+    case "$parent" in '' | *[!0-9]*) continue ;; esac
+    case "$created" in '' | *[!0-9]*) continue ;; esac
+    _FM_PS_WIN_PARENT[win]=$parent
+    _FM_PS_WIN_NAME[win]=$name
+    _FM_PS_WIN_CREATED[win]=$created
+  done <<EOF
+$table
+EOF
+  [ "${#_FM_PS_WIN_CREATED[@]}" -gt 0 ] || return 1
+  _fm_ps_root
+  for dir in "$_FM_PS_ROOT"/[0-9]*; do
+    pid=${dir##*/}
+    case "$pid" in *[!0-9]*) continue ;; esac
+    _fm_ps_read winpid "$dir/winpid" || continue
+    case "$winpid" in '' | *[!0-9]*) continue ;; esac
+    _FM_PS_WIN_MSYS[winpid]=$pid
+  done
+  _FM_PS_TABLE=ok
+}
+
+# Set _FM_PS_VALUE to the MSYS pid of the nearest of the first seven Windows
+# ancestors of MSYS process $1 that has one, crossing only Windows-only shell
+# launchers, or return 1 when there is none. The answer is cached per process
+# start, because a process's parent never changes.
 _fm_ps_windows_parent() {  # <pid>
-  local pid=$1 winpid start cache_dir cache_file cached chain
-  local cur_win cur_parent name created child_created='' hop=0 mapped=none
+  local pid=$1 winpid start cache_dir cache_file cached child cur hop=0 mapped=none
   _fm_ps_root
   _fm_ps_read winpid "$_FM_PS_ROOT/$pid/winpid" || return 1
   case "$winpid" in '' | *[!0-9]*) return 1 ;; esac
@@ -214,32 +254,27 @@ _fm_ps_windows_parent() {  # <pid>
       *) _FM_PS_VALUE=$cached; return 0 ;;
     esac
   fi
-  chain=$(_fm_ps_windows_chain "$winpid") || chain=
-  while IFS=$'\t' read -r cur_win cur_parent name created; do
-    case "$cur_win" in '' | *[!0-9]*) break ;; esac
-    case "$cur_parent" in '' | *[!0-9]*) break ;; esac
-    case "$created" in '' | *[!0-9]*) break ;; esac
-    if [ "$hop" -gt 0 ]; then
-      # A recycled Windows pid would name a process created after its child.
-      [ "$created" -le "$child_created" ] || break
-      if _fm_ps_from_winpid "$cur_win"; then
-        mapped=$_FM_PS_VALUE
-        break
-      fi
-      case "$name" in
-        [Bb][Aa][Ss][Hh].[Ee][Xx][Ee] | [Ss][Hh].[Ee][Xx][Ee] | \
-          [Cc][Mm][Dd].[Ee][Xx][Ee] | [Cc][Oo][Nn][Hh][Oo][Ss][Tt].[Ee][Xx][Ee]) ;;
-        *) break ;;
-      esac
-    elif [ "$cur_win" != "$winpid" ]; then
+  _fm_ps_windows_table_load || return 1
+  [ -n "${_FM_PS_WIN_CREATED[winpid]:-}" ] || return 1
+  child=$winpid
+  while [ "$hop" -lt 7 ]; do
+    cur=${_FM_PS_WIN_PARENT[child]}
+    [ -n "${_FM_PS_WIN_CREATED[cur]:-}" ] || break
+    # A recycled Windows pid would name a process created after its child.
+    [ "${_FM_PS_WIN_CREATED[cur]}" -le "${_FM_PS_WIN_CREATED[child]}" ] || break
+    if [ -n "${_FM_PS_WIN_MSYS[cur]:-}" ]; then
+      mapped=${_FM_PS_WIN_MSYS[cur]}
       break
     fi
-    child_created=$created
+    case "${_FM_PS_WIN_NAME[cur]}" in
+      [Bb][Aa][Ss][Hh].[Ee][Xx][Ee] | [Ss][Hh].[Ee][Xx][Ee] | \
+        [Cc][Mm][Dd].[Ee][Xx][Ee] | [Cc][Oo][Nn][Hh][Oo][Ss][Tt].[Ee][Xx][Ee]) ;;
+      *) break ;;
+    esac
+    child=$cur
     hop=$((hop + 1))
-  done <<EOF
-$chain
-EOF
-  if [ -n "$chain" ] && mkdir -p "$cache_dir" 2>/dev/null; then
+  done
+  if mkdir -p "$cache_dir" 2>/dev/null; then
     { printf '%s\n' "$mapped" > "$cache_file.$$" && mv -f "$cache_file.$$" "$cache_file"; } 2>/dev/null || true
   fi
   [ "$mapped" != none ] || return 1
@@ -257,8 +292,8 @@ _fm_ps_value_ppid() {  # <pid>
   _FM_PS_VALUE=$ppid
 }
 
-# Set _FM_PS_VALUE to field $2 of process $1. Returns 2 for a field this shim
-# does not know; an unreadable known field is an empty value.
+# Set _FM_PS_VALUE to field $2 of process $1; an unreadable field is an empty
+# value.
 _fm_ps_value() {  # <pid> <field>
   local pid=$1
   _FM_PS_VALUE=
@@ -266,16 +301,11 @@ _fm_ps_value() {  # <pid> <field>
   case "$2" in
     pid) _FM_PS_VALUE=$pid ;;
     ppid) _fm_ps_value_ppid "$pid" || _FM_PS_VALUE= ;;
-    pgid | pgrp) _fm_ps_read _FM_PS_VALUE "$_FM_PS_ROOT/$pid/pgid" || _FM_PS_VALUE= ;;
-    comm | ucomm) _fm_ps_value_comm "$pid" || _FM_PS_VALUE= ;;
-    args | command | cmd) _fm_ps_value_args "$pid" || _FM_PS_VALUE= ;;
+    pgid) _fm_ps_read _FM_PS_VALUE "$_FM_PS_ROOT/$pid/pgid" || _FM_PS_VALUE= ;;
+    comm) _fm_ps_value_comm "$pid" || _FM_PS_VALUE= ;;
+    args | command) _fm_ps_value_args "$pid" || _FM_PS_VALUE= ;;
     lstart) _fm_ps_value_lstart "$pid" || _FM_PS_VALUE= ;;
-    stat | state | s) _fm_ps_stat "$pid" && _FM_PS_VALUE=${_FM_PS_STAT[0]} ;;
-    tpgid) _fm_ps_stat "$pid" && _FM_PS_VALUE=${_FM_PS_STAT[5]} ;;
-    tty | tt) _fm_ps_read _FM_PS_VALUE "$_FM_PS_ROOT/$pid/ctty" || _FM_PS_VALUE='?' ;;
-    uid) _fm_ps_read _FM_PS_VALUE "$_FM_PS_ROOT/$pid/uid" || _FM_PS_VALUE= ;;
-    %cpu | pcpu) _FM_PS_VALUE=0.0 ;;
-    *) return 2 ;;
+    stat | state) _fm_ps_stat "$pid" && _FM_PS_VALUE=${_FM_PS_STAT[0]} ;;
   esac
   return 0
 }
@@ -284,6 +314,7 @@ fm_ps_proc() {
   local -a original=("$@") specs=() fields=() pids=() names=() more=()
   local all=0 arg spec name pid line dir printed=0 uid_filter='' uid
   fm_ps_proc_active || { command ps "$@"; return; }
+  _FM_PS_TABLE=
   while [ "$#" -gt 0 ]; do
     arg=$1
     case "$arg" in
@@ -293,26 +324,19 @@ fm_ps_proc() {
         all=1
         shift 2
         ;;
-      -o | -eo | -Ao | -axo | -axwwo)
+      -o | -eo | -axo)
         [ "$#" -ge 2 ] || { command ps "${original[@]}"; return; }
         [ "$arg" = -o ] || all=1
         specs+=("$2")
         shift 2
         ;;
-      -o?*) specs+=("${arg#-o}"); shift ;;
       -p)
         [ "$#" -ge 2 ] || { command ps "${original[@]}"; return; }
         IFS=', ' read -r -a more <<< "$2"
         pids+=("${more[@]}")
         shift 2
         ;;
-      -p?*)
-        IFS=', ' read -r -a more <<< "${arg#-p}"
-        pids+=("${more[@]}")
-        shift
-        ;;
-      -A | -e | -ax | -axw | -axww) all=1; shift ;;
-      -w | -ww | -E | -Ew | -Eww) shift ;;
+      -A | -e) all=1; shift ;;
       *) command ps "${original[@]}"; return ;;
     esac
   done
@@ -321,7 +345,7 @@ fm_ps_proc() {
     IFS=, read -r -a names <<< "$spec"
     for name in "${names[@]}"; do
       case "$name" in
-        *=*) fields+=("${name%%=*}") ;;
+        pid= | ppid= | pgid= | comm= | args= | command= | lstart= | stat= | state=) fields+=("${name%=}") ;;
         *) command ps "${original[@]}"; return ;;
       esac
     done
@@ -345,7 +369,7 @@ fm_ps_proc() {
     fi
     line=
     for name in "${fields[@]}"; do
-      _fm_ps_value "$pid" "$name" || { command ps "${original[@]}"; return; }
+      _fm_ps_value "$pid" "$name"
       line=${line:+$line }$_FM_PS_VALUE
     done
     printf '%s\n' "$line"

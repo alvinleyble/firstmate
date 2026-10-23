@@ -1241,14 +1241,28 @@ fm_lock_try_acquire_steal_mutex() {  # <steal-lock>
 # deep-copying `ln -s` (before fm_lock_symlink) left locks in that form, and a
 # dead one would otherwise block every later claim, since only symlink locks
 # are reaped above. A directory with no readable pid may be mid-acquire and is
-# left alone.
+# left alone. Like fm_lock_reap_dead_link, renaming the directory to this
+# process's tombstone elects exactly one reaper, and only a tombstone that is
+# still a real directory recording the dead pid is removed: when a competing
+# reaper already replaced the lock with its own link, that link is what was
+# renamed, so it is put back untouched.
 fm_lock_reap_dead_dir() {  # <lockdir>
-  local lockdir=$1 pid
+  local lockdir=$1 pid current tomb
   [ -d "$lockdir" ] && [ ! -L "$lockdir" ] || return 1
   pid=$(cat "$lockdir/pid" 2>/dev/null || true)
   case "$pid" in ''|*[!0-9]*) return 1 ;; esac
   fm_pid_alive "$pid" && return 1
-  fm_lock_remove_path "$lockdir"
+  fm_current_pid current || return 1
+  tomb="$lockdir.reaped.$current"
+  [ ! -e "$tomb" ] && [ ! -L "$tomb" ] || return 1
+  mv -- "$lockdir" "$tomb" 2>/dev/null || return 1
+  if [ -d "$tomb" ] && [ ! -L "$tomb" ] && [ "$(cat "$tomb/pid" 2>/dev/null || true)" = "$pid" ]; then
+    fm_lock_clean_known_files "$tomb"
+    rmdir "$tomb" 2>/dev/null || true
+    return 0
+  fi
+  [ -e "$lockdir" ] || [ -L "$lockdir" ] || mv -- "$tomb" "$lockdir" 2>/dev/null || true
+  return 1
 }
 
 # Reap every dead marker in the nested steal chain above <steal-lock>, deepest

@@ -1,3 +1,4 @@
+  [ -e "$home/bin/fm-ps-lib.sh" ] || ln -s "$ROOT/bin/fm-ps-lib.sh" "$home/bin/fm-ps-lib.sh"
 #!/usr/bin/env bash
 # Behavior tests for bin/fm-mail-check.sh, the standing received-mail check.
 #

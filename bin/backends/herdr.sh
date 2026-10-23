@@ -1403,6 +1403,20 @@ fm_backend_herdr_death_close_pane() {  # <session> <pane-id> <shell-pid> [guard-
   return 1
 }
 
+# fm_backend_herdr_local_pid: print Herdr-reported <pid> as the pid that ps,
+# /proc, and kill address here, or return 1 when there is none. Herdr on native
+# Windows reports Windows pids, while the shimmed ps there (bin/fm-ps-lib.sh)
+# answers in MSYS pids, so the pid is translated and a process with no MSYS pid
+# is refused rather than read or signaled under an unrelated MSYS pid. Every
+# other platform, and an FM_HERDR_PS_BIN stand-in, shares Herdr's pids.
+fm_backend_herdr_local_pid() {  # <herdr-pid>
+  if [ "${FM_HERDR_PS_BIN:-ps}" = ps ] && fm_backend_herdr_windows_host && fm_ps_proc_active; then
+    fm_ps_pid_from_winpid "$1"
+    return
+  fi
+  printf '%s\n' "$1"
+}
+
 # fm_backend_herdr_pid_is_bare_shell: <pid> currently resolves to a bare
 # recognized shell process per <ps-bin>.
 # BSD ps reports comm as argv0, so a login shell arrives as "-zsh"; strip the
@@ -1481,6 +1495,7 @@ fm_backend_herdr_pane_idle_shell_sample() {  # <session> <pane-id>
 
   ps_bin=${FM_HERDR_PS_BIN:-ps}
   command -v "$ps_bin" >/dev/null 2>&1 || return 1
+  shell_pid=$(fm_backend_herdr_local_pid "$shell_pid") || return 1
   rows=$("$ps_bin" -axo pid=,ppid= 2>/dev/null) || return 1
   printf '%s\n' "$rows" | awk -v shell="$shell_pid" '
     $1 == shell { found++ }
@@ -2206,6 +2221,7 @@ fm_backend_herdr_pane_process_state_sample() {  # <session> <pane_id>
   while [ "$i" -lt "$count" ]; do
     pid=$(printf '%s' "$info" | jq -r --argjson i "$i" \
       '.result.process_info.foreground_processes[$i].pid | select(type == "number") | floor' 2>/dev/null)
+    [ -z "$pid" ] || pid=$(fm_backend_herdr_local_pid "$pid") || pid=
     name=$(printf '%s' "$info" | jq -r --argjson i "$i" \
       '.result.process_info.foreground_processes[$i].name // empty' 2>/dev/null)
     argv0=$(printf '%s' "$info" | jq -r --argjson i "$i" '
@@ -2231,6 +2247,7 @@ fm_backend_herdr_pane_process_state_sample() {  # <session> <pane_id>
   [ "$others" -eq 0 ] || { printf 'other'; return 0; }
   ps_bin=${FM_HERDR_PS_BIN:-ps}
   command -v "$ps_bin" >/dev/null 2>&1 || { printf 'unreadable'; return 0; }
+  shell_pid=$(fm_backend_herdr_local_pid "$shell_pid") || { printf 'unreadable'; return 0; }
   rows=$(LC_ALL=C "$ps_bin" -axo pid=,ppid=,comm= 2>/dev/null) || { printf 'unreadable'; return 0; }
   printf '%s\n' "$rows" | awk -v shell="$shell_pid" '$1 == shell { found = 1 } END { exit(found ? 0 : 1) }' \
     || { printf 'unreadable'; return 0; }
