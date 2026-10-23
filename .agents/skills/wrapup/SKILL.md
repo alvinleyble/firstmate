@@ -25,6 +25,7 @@ Drive the merge, task cleanup, superseded-backlog sweep, and clean-state report 
 2. Otherwise, if the PR is already merged or landed on its base branch, proceed directly to cleanup.
 3. Otherwise, merge with `bin/fm-pr-merge.sh <task-id> <pr-url> --attended-override -- --delete-branch`; the captain's wrap-up instruction is the explicit instruction that `--attended-override` requires for branch deletion.
    Add the captain's recorded merge method from `data/captain.md` after the `--` (for example `--merge`) when one is recorded, and `--passphrase <word>` before the `--` when the base is gated.
+   For a Forgejo pull request, drop `--attended-override` and `--delete-branch`, because Forgejo merges accept only a merge method after the `--`; `bin/fm-teardown.sh` removes only the local branch, so name the merged branch left on the forge in the report for the captain to delete.
 4. If `fm-pr-merge.sh` returns non-zero, check whether the PR was already merged before treating it as an error, and report a refusal rather than working around it.
 
 ## 3. Clean up the task
