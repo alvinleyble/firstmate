@@ -333,6 +333,45 @@ fm_pr_file_mode() {
   fi
 }
 
+# fm_pr_file_mode_is <path> <mode> is the exact-permission test for a private
+# artifact. A Git Bash (MSYS) or Cygwin drive mounted noacl, Git for Windows'
+# default, cannot store permission bits: chmod succeeds, but stat derives the
+# bits from the file's contents and the reading process's umask, so the same
+# file reads 600 under umask 077, 644 under 022, and 700 or 755 once it starts
+# with #!. Only on those platforms, and only once a probe proves the path's
+# directory ignores chmod, the comparison is skipped and the folder's NTFS
+# permissions are the protection; the caller's type, device, and link-count
+# tests still apply.
+fm_pr_file_mode_is() {
+  [ "$(fm_pr_file_mode "$1")" = "$2" ] && return 0
+  fm_pr_mode_bits_dropped "$(dirname -- "$1")"
+}
+
+# Directories already probed by this process, one per line.
+_FM_PR_MODE_DROPPED_DIRS=
+_FM_PR_MODE_KEPT_DIRS=
+fm_pr_mode_bits_dropped() {  # <directory>
+  local dir=$1 probe private shared
+  case "${OSTYPE:-}" in
+    msys* | cygwin*) ;;
+    *) return 1 ;;
+  esac
+  case $'\n'"$_FM_PR_MODE_DROPPED_DIRS" in *$'\n'"$dir"$'\n'*) return 0 ;; esac
+  case $'\n'"$_FM_PR_MODE_KEPT_DIRS" in *$'\n'"$dir"$'\n'*) return 1 ;; esac
+  probe=$(mktemp "$dir/.fm-mode-probe.XXXXXX" 2>/dev/null) || return 1
+  chmod 0600 "$probe" 2>/dev/null || true
+  private=$(fm_pr_file_mode "$probe")
+  chmod 0644 "$probe" 2>/dev/null || true
+  shared=$(fm_pr_file_mode "$probe")
+  rm -f -- "$probe"
+  if [ -n "$private" ] && [ "$private" = "$shared" ]; then
+    _FM_PR_MODE_DROPPED_DIRS+="$dir"$'\n'
+    return 0
+  fi
+  _FM_PR_MODE_KEPT_DIRS+="$dir"$'\n'
+  return 1
+}
+
 fm_pr_file_device() {
   if [ "$(uname)" = Darwin ]; then
     /usr/bin/stat -f %d "$1" 2>/dev/null
@@ -388,7 +427,7 @@ fm_pr_sha256() {
 fm_pr_private_file_valid() {
   local path=$1 mode=$2 device=$3
   [ -f "$path" ] && [ ! -L "$path" ] || return 1
-  [ "$(fm_pr_file_mode "$path")" = "$mode" ] || return 1
+  fm_pr_file_mode_is "$path" "$mode" || return 1
   [ "$(fm_pr_file_device "$path")" = "$device" ] || return 1
   [ "$(fm_pr_file_link_count "$path")" = 1 ]
 }

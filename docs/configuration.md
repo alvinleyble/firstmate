@@ -1705,6 +1705,7 @@ Firstmate runs natively on Windows inside Git Bash from Git for Windows, with th
 - For the Herdr backend, set Herdr's pane shell to Git Bash as a login shell (`[terminal]` `default_shell = 'C:\Program Files\Git\bin\bash.exe'` and `shell_mode = "login"`), because firstmate drives every task pane through POSIX commands.
 - When `python3` resolves only to the Microsoft Store placeholder, Python-backed helpers such as the test runner fail; put a `python3` that runs the installed Python ahead of it on Git Bash's `PATH`.
 - `lsof` is unavailable, so teardown's process-group fallback warns and leaves lingering task processes to treehouse's own cleanup.
+- Git for Windows mounts drives `noacl`, where `chmod` is accepted but never stored, so firstmate's checks that a private artifact such as a custom check, a PR poll, or a merge-authority record has an exact owner-only mode are skipped once a probe shows the folder ignores `chmod` (`fm_pr_file_mode_is` in `bin/fm-pr-lib.sh`); the folder's own NTFS permissions are then the only protection, so keep the firstmate home in a folder other Windows accounts cannot write.
 
 [`bin/fm-ps-lib.sh`](../bin/fm-ps-lib.sh) owns the process reads that make the session lock and supervision work there, including the Windows parent-chain crossing, and [`bin/backends/herdr.sh`](../bin/backends/herdr.sh) owns how a Windows Herdr pane reports its current folder.
 
