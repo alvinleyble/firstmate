@@ -1701,6 +1701,7 @@ Firstmate runs natively on Windows inside Git Bash from Git for Windows, with th
 - Windows Developer Mode, or the symlink privilege, is required because firstmate's locks are symlinks; bootstrap reports `MISSING_MANUAL: windows-native-symlinks` when Windows refuses one.
 - Start the primary harness from a Git Bash shell, such as a Git Bash terminal tab or a Herdr pane running Git Bash, so the session lock can find it.
 - `powershell.exe` must be reachable, because a shell that a native Windows program started is traced back to its harness through Windows' own process records.
+- That trace survives at most one `exec` of the shell a hook starts, because each later `exec` leaves a Windows parent that has already exited; Claude's tracked hooks that need that trace therefore start their script with `bash` directly instead of through its `#!/usr/bin/env bash` line, and a hook script hands off to another script as a child.
 - For the Herdr backend, set Herdr's pane shell to Git Bash as a login shell (`[terminal]` `default_shell = 'C:\Program Files\Git\bin\bash.exe'` and `shell_mode = "login"`), because firstmate drives every task pane through POSIX commands.
 - When `python3` resolves only to the Microsoft Store placeholder, Python-backed helpers such as the test runner fail; put a `python3` that runs the installed Python ahead of it on Git Bash's `PATH`.
 - `lsof` is unavailable, so teardown's process-group fallback warns and leaves lingering task processes to treehouse's own cleanup.
