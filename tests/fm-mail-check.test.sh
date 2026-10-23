@@ -1,4 +1,3 @@
-  [ -e "$home/bin/fm-ps-lib.sh" ] || ln -s "$ROOT/bin/fm-ps-lib.sh" "$home/bin/fm-ps-lib.sh"
 #!/usr/bin/env bash
 # Behavior tests for bin/fm-mail-check.sh, the standing received-mail check.
 #
@@ -64,6 +63,7 @@ enter_mailbox() {
   mkdir -p "$home/bin" "$FAKEBIN"
   [ -e "$home/bin/fm-wake-lib.sh" ] || ln -s "$ROOT/bin/fm-wake-lib.sh" "$home/bin/fm-wake-lib.sh"
   [ -e "$home/bin/fm-path-lib.sh" ] || ln -s "$ROOT/bin/fm-path-lib.sh" "$home/bin/fm-path-lib.sh"
+  [ -e "$home/bin/fm-ps-lib.sh" ] || ln -s "$ROOT/bin/fm-ps-lib.sh" "$home/bin/fm-ps-lib.sh"
   printf '%s\n' "$generator" > "$FAKEBIN/python3"
   chmod +x "$FAKEBIN/python3"
 }
