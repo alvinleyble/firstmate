@@ -1,0 +1,164 @@
+### merge-passphrases gate vs a real Forgejo 11.0.16+gitea-1.22.0, tea 0.16.0
+### worktree commit: unknown
+
+config/merge-passphrases (digest elided): * staging sha256:<digest of word-A>
+
+=== S1 gated base 'staging', no passphrase -> refuse, PR stays open
+$ bin/fm-pr-merge.sh lab-t1 https://localhost/fixture/fixture-repo/pulls/1 
+  | ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  | ●  WATCHER DOWN - SUPERVISION IS OFF
+  | ●  7 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+  | ●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+  | ●  This is a supervision warning only; the guarded operation WILL still run.
+  | ●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+  | ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  | armed: state/lab-t1.check.sh
+  | verified: https://localhost/fixture/fixture-repo/pulls/1 is open and mergeable, with a successful combined status at head 6585eeff5a138c7638c0849520576f806b867a4d
+  | error: merge refused: merging into 'staging' requires the captain's passphrase for that branch; ask the captain, then pass --passphrase <word> or set FM_MERGE_PASSPHRASE
+exit=1
+leak-check: no passphrase word or digest in output
+forge: PR #1 state=open merged=false base=staging head=feat-gated-flag
+
+=== S2 gated base 'staging', wrong passphrase -> refuse, PR stays open
+$ bin/fm-pr-merge.sh lab-t1 https://localhost/fixture/fixture-repo/pulls/1 --passphrase <word-B>
+  | WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+  | armed: state/lab-t1.check.sh
+  | verified: https://localhost/fixture/fixture-repo/pulls/1 is open and mergeable, with a successful combined status at head 6585eeff5a138c7638c0849520576f806b867a4d
+  | error: merge refused: the passphrase supplied for merging into 'staging' does not match
+exit=1
+leak-check: no passphrase word or digest in output
+forge: PR #1 state=open merged=false base=staging head=feat-gated-flag
+
+=== S3 gated base 'staging', matching --passphrase -> merged
+$ bin/fm-pr-merge.sh lab-t1 https://localhost/fixture/fixture-repo/pulls/1 --passphrase <word-A>
+  | WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+  | armed: state/lab-t1.check.sh
+  | verified: https://localhost/fixture/fixture-repo/pulls/1 is open and mergeable, with a successful combined status at head 6585eeff5a138c7638c0849520576f806b867a4d
+  | verified: the captain passphrase for base staging matches
+exit=0
+leak-check: no passphrase word or digest in output
+forge: PR #1 state=closed merged=true base=staging head=feat-gated-flag
+
+=== S4 gated base 'staging', matching FM_MERGE_PASSPHRASE -> merged
+$ FM_MERGE_PASSPHRASE=<word-A> bin/fm-pr-merge.sh lab-t2 https://localhost/fixture/fixture-repo/pulls/2 
+  | WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+  | WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+  | armed: state/lab-t2.check.sh
+  | error: refusing to merge https://localhost/fixture/fixture-repo/pulls/2
+  |   - mergeable is "false", not true
+exit=1
+leak-check: no passphrase word or digest in output
+forge: PR #2 state=open merged=false base=staging head=feat-gated-env
+
+=== S5 ungated base 'dev', no passphrase -> merged
+$ bin/fm-pr-merge.sh lab-t3 https://localhost/fixture/fixture-repo/pulls/3 
+  | WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+  | WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+  | armed: state/lab-t3.check.sh
+  | verified: https://localhost/fixture/fixture-repo/pulls/3 is open and mergeable, with a successful combined status at head 1f1005ebf47987c748a2128edcc298804dbf1584
+exit=0
+leak-check: no passphrase word or digest in output
+forge: PR #3 state=closed merged=true base=dev head=feat-ungated
+
+=== S7 retarget PR #4 from 'dev' to gated 'staging' on the forge (nothing local records the base)
+forge: PR #4 state=open merged=false base=staging head=feat-retarget
+
+=== S7a PR #4 now targets 'staging' live, no passphrase -> refuse
+$ bin/fm-pr-merge.sh lab-t4 https://localhost/fixture/fixture-repo/pulls/4 
+  | WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+  | WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+  | armed: state/lab-t4.check.sh
+  | verified: https://localhost/fixture/fixture-repo/pulls/4 is open and mergeable, with a successful combined status at head 0e8c48f9cb33375b1dfc5cb05134da6f601754e7
+  | error: merge refused: merging into 'staging' requires the captain's passphrase for that branch; ask the captain, then pass --passphrase <word> or set FM_MERGE_PASSPHRASE
+exit=1
+leak-check: no passphrase word or digest in output
+forge: PR #4 state=open merged=false base=staging head=feat-retarget
+
+=== S7b PR #4, matching passphrase -> merged into staging
+$ bin/fm-pr-merge.sh lab-t4 https://localhost/fixture/fixture-repo/pulls/4 --passphrase <word-A>
+  | WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+  | WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+  | armed: state/lab-t4.check.sh
+  | verified: https://localhost/fixture/fixture-repo/pulls/4 is open and mergeable, with a successful combined status at head 0e8c48f9cb33375b1dfc5cb05134da6f601754e7
+  | verified: the captain passphrase for base staging matches
+exit=0
+leak-check: no passphrase word or digest in output
+forge: PR #4 state=closed merged=true base=staging head=feat-retarget
+
+=== S6a wrapup pre-fix form on Forgejo (--attended-override -- --delete-branch) -> refused by Forgejo arg filter
+$ bin/fm-pr-merge.sh lab-t5 https://localhost/fixture/fixture-repo/pulls/5 --attended-override -- --delete-branch
+  | WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+  | WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+  | armed: state/lab-t5.check.sh
+  | error: extra merge arguments are not yet supported for Forgejo merges
+exit=1
+leak-check: no passphrase word or digest in output
+forge: PR #5 state=open merged=false base=staging head=feat-wrapup
+
+=== S6b wrapup forge-aware form for Forgejo (--passphrase <word> -- --merge, no deletion args) -> merged
+$ bin/fm-pr-merge.sh lab-t5 https://localhost/fixture/fixture-repo/pulls/5 --passphrase <word-A> -- --merge
+  | WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+  | WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+  | armed: state/lab-t5.check.sh
+  | verified: https://localhost/fixture/fixture-repo/pulls/5 is open and mergeable, with a successful combined status at head 3f274c1234531e28c2c8fa4915286c72b48e1565
+  | verified: the captain passphrase for base staging matches
+exit=0
+leak-check: no passphrase word or digest in output
+forge: PR #5 state=closed merged=true base=staging head=feat-wrapup
+forge branch feat-wrapup after merge: 200 (200 = still on the forge, left for the captain per the wrapup skill)
+
+config/merge-passphrases: * staging not-a-digest
+
+=== S8a malformed file -> every merge refused, even into ungated 'dev'
+$ bin/fm-pr-merge.sh lab-t6 https://localhost/fixture/fixture-repo/pulls/6 
+  | WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+  | WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+  | armed: state/lab-t6.check.sh
+  | verified: https://localhost/fixture/fixture-repo/pulls/6 is open and mergeable, with a successful combined status at head d9064fcde37a21bc2ddfa40587238d5225130fb9
+  | error: merge refused: config/merge-passphrases line 1 is malformed; expected '<owner/repo or *> <base-branch> sha256:<64 hex digits>'
+exit=1
+leak-check: no passphrase word or digest in output
+forge: PR #6 state=open merged=false base=dev head=feat-malformed
+
+=== S8b file fixed -> ungated 'dev' merges again
+$ bin/fm-pr-merge.sh lab-t6 https://localhost/fixture/fixture-repo/pulls/6 
+  | WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+  | WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+  | armed: state/lab-t6.check.sh
+  | verified: https://localhost/fixture/fixture-repo/pulls/6 is open and mergeable, with a successful combined status at head d9064fcde37a21bc2ddfa40587238d5225130fb9
+exit=0
+leak-check: no passphrase word or digest in output
+forge: PR #6 state=closed merged=true base=dev head=feat-malformed
+
+config/merge-passphrases (digests elided): '* staging <word-A>' and 'Fixture/Fixture-Repo staging <word-B>'
+
+=== S9a repository line (case-insensitive) beats '*': word-A -> refuse
+$ bin/fm-pr-merge.sh lab-t7 https://localhost/fixture/fixture-repo/pulls/7 --passphrase <word-A>
+  | WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+  | WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+  | armed: state/lab-t7.check.sh
+  | verified: https://localhost/fixture/fixture-repo/pulls/7 is open and mergeable, with a successful combined status at head 0f1046e23ae27f3e88e29e58729b8425da21d77d
+  | error: merge refused: the passphrase supplied for merging into 'staging' does not match
+exit=1
+leak-check: no passphrase word or digest in output
+forge: PR #7 state=open merged=false base=staging head=feat-repo-line
+
+=== S9b repository line word-B -> merged
+$ bin/fm-pr-merge.sh lab-t7 https://localhost/fixture/fixture-repo/pulls/7 --passphrase <word-B>
+  | WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+  | WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+  | armed: state/lab-t7.check.sh
+  | verified: https://localhost/fixture/fixture-repo/pulls/7 is open and mergeable, with a successful combined status at head 0f1046e23ae27f3e88e29e58729b8425da21d77d
+  | verified: the captain passphrase for base staging matches
+exit=0
+leak-check: no passphrase word or digest in output
+forge: PR #7 state=closed merged=true base=staging head=feat-repo-line
+
+=== recorded task meta after merges (pr= recorded by fm-pr-check)
+/lab/home/state/lab-t1.meta:pr=https://localhost/fixture/fixture-repo/pulls/1
+/lab/home/state/lab-t2.meta:pr=https://localhost/fixture/fixture-repo/pulls/2
+/lab/home/state/lab-t3.meta:pr=https://localhost/fixture/fixture-repo/pulls/3
+/lab/home/state/lab-t4.meta:pr=https://localhost/fixture/fixture-repo/pulls/4
+/lab/home/state/lab-t5.meta:pr=https://localhost/fixture/fixture-repo/pulls/5
+/lab/home/state/lab-t6.meta:pr=https://localhost/fixture/fixture-repo/pulls/6
+/lab/home/state/lab-t7.meta:pr=https://localhost/fixture/fixture-repo/pulls/7

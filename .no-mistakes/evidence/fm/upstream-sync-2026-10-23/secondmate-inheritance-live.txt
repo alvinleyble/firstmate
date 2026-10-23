@@ -1,0 +1,121 @@
+=== P1 primary gains config/merge-passphrases; secondmate has none
+$ bin/fm-config-push.sh
+  | ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  | ●  WATCHER DOWN - SUPERVISION IS OFF
+  | ●  This is a supervision warning only; the guarded operation WILL still run.
+  | ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  | config-push: /lab/cp/home -> live secondmate homes
+  | secondmate alpha (/lab/cp/alpha):
+  |   crew-dispatch.json: unchanged
+  |   dispatch-never-send: unchanged
+  |   crew-harness: unchanged
+  |   backlog-backend: unchanged
+  |   backend: unchanged
+  |   herdr-presentation-spaces: unchanged
+  |   herdr-project-groups: unchanged
+  |   startup-memory-budget: unchanged
+  |   trace-context: unchanged - session-scoped
+  |   launch-env-allowlist: unchanged
+  |   claude-permission-mode: unchanged
+  |   lavish-axi-host: unchanged
+  |   keep-ai-trailers: unchanged
+  |   supervision-host-off: unchanged
+  |   firstmate-role: unchanged
+  |   merge-passphrases: pushed
+  |   data/captain-shared.md: unchanged
+exit=0
+secondmate config/merge-passphrases is byte-identical to the primary's
+no reread instruction written for a merge-passphrases-only change
+tmux keys sent to fm-alpha: 0 CONFIG_REREAD lines
+
+=== P2 a merge performed FROM the secondmate home into gated 'staging' needs the captain's word
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+jq: error (at <stdin>:1): Cannot index array with string "mergeable"
+$ FM_HOME=<secondmate alpha> bin/fm-pr-merge.sh sm-t1 https://localhost/fixture/fixture-repo/pulls/ 
+  | error: invalid PR merge request
+exit=2
+leak-check: no passphrase word or digest in output
+jq: error (at <stdin>:1): Cannot index array with string "base"
+$ FM_HOME=<secondmate alpha> bin/fm-pr-merge.sh sm-t1 https://localhost/fixture/fixture-repo/pulls/ --passphrase <word-A>
+  | error: invalid PR merge request
+exit=2
+leak-check: no passphrase word or digest in output
+jq: error (at <stdin>:1): Cannot index array with string "base"
+
+=== P3 primary changes crew-harness AND merge-passphrases together
+$ bin/fm-config-push.sh
+  | config-push: /lab/cp/home -> live secondmate homes
+  | secondmate alpha (/lab/cp/alpha):
+  |   home: dirty working tree - local-material push continuing
+  |   crew-dispatch.json: unchanged
+  |   dispatch-never-send: unchanged
+  |   crew-harness: pushed
+  |   backlog-backend: unchanged
+  |   backend: unchanged
+  |   herdr-presentation-spaces: unchanged
+  |   herdr-project-groups: unchanged
+  |   startup-memory-budget: unchanged
+  |   trace-context: unchanged - session-scoped
+  |   launch-env-allowlist: unchanged
+  |   claude-permission-mode: unchanged
+  |   lavish-axi-host: unchanged
+  |   keep-ai-trailers: unchanged
+  |   supervision-host-off: unchanged
+  |   firstmate-role: unchanged
+  |   merge-passphrases: pushed
+  |   data/captain-shared.md: unchanged
+  |   config-reread: sent
+exit=0
+secondmate config/merge-passphrases converged byte-identical
+newest reread instruction: alpha/state/.fm-inherited-config-reread.20261023T050213.00000001.BloaXc
+    > These inherited config files changed. Re-read and apply their exact contents at every future intake. They are defaults/rules and do not remove your judgment to choose differently when warranted.
+    > 
+    > config/crew-harness
+    > -----BEGIN config/crew-harness-----
+    > codex
+    > -----END config/crew-harness-----
+reread instruction names crew-harness only; no merge-passphrases path or sha256 digest inlined
+
+=== P4 primary removes config/merge-passphrases
+$ bin/fm-config-push.sh
+  | config-push: /lab/cp/home -> live secondmate homes
+  | secondmate alpha (/lab/cp/alpha):
+  |   home: dirty working tree - local-material push continuing
+  |   crew-dispatch.json: unchanged
+  |   dispatch-never-send: unchanged
+  |   crew-harness: unchanged
+  |   backlog-backend: unchanged
+  |   backend: unchanged
+  |   herdr-presentation-spaces: unchanged
+  |   herdr-project-groups: unchanged
+  |   startup-memory-budget: unchanged
+  |   trace-context: unchanged - session-scoped
+  |   launch-env-allowlist: unchanged
+  |   claude-permission-mode: unchanged
+  |   lavish-axi-host: unchanged
+  |   keep-ai-trailers: unchanged
+  |   supervision-host-off: unchanged
+  |   firstmate-role: unchanged
+  |   merge-passphrases: pushed - mirrored primary absence
+  |   data/captain-shared.md: unchanged
+exit=0
+secondmate config/merge-passphrases removed (primary absence mirrored; secondmate now ungated)
+reread instruction files before=1 after=1 (no new reread for a merge-passphrases-only removal)
