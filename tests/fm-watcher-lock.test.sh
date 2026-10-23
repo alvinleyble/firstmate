@@ -452,6 +452,32 @@ test_lock_recovers_dead_nested_steal_chain() {
   pass "dead nested steal chain from an interrupted reclaim is recovered"
 }
 
+# Git Bash's deep-copying `ln -s` used to leave every lock and steal marker as a
+# plain directory, and one more nested marker on each blocked attempt.
+test_lock_recovers_dead_directory_steal_chain() {
+  local dir state lockdir rc marker dead
+  dir=$(make_case lock-dead-directory-steal-chain)
+  state="$dir/state"
+  lockdir="$state/.contend.lock"
+  dead=$(dead_pid)
+  for marker in "$lockdir" "$lockdir.steal" "$lockdir.steal.steal" "$lockdir.steal.steal.steal"; do
+    mkdir "$marker"
+    printf '%s\n' "$dead" > "$marker/pid"
+  done
+
+  rc=0
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    fm_lock_try_acquire "$2" || exit 8
+    fm_lock_release "$2"
+  ' _ "$LIB" "$lockdir" || rc=$?
+  [ "$rc" -eq 0 ] || fail "a dead directory-form steal chain kept the lock unrecoverable (rc=$rc)"
+  for marker in "$lockdir" "$lockdir.steal" "$lockdir.steal.steal" "$lockdir.steal.steal.steal"; do
+    [ ! -e "$marker" ] && [ ! -L "$marker" ] || fail "dead directory-form marker remained: $marker"
+  done
+  pass "dead directory-form lock and steal chain is recovered"
+}
+
 test_lock_reclaims_self_held_steal_mutex() {
   # A TERM that lands while this process holds the steal mutex runs the EXIT
   # path, which re-acquires the same dead-owner lock. The abandoned steal hold
@@ -1584,6 +1610,7 @@ test_lock_steals_dead_pid_lock
 test_lock_stale_steal_single_winner_under_concurrency
 test_lock_reclaims_dead_steal_owner_without_nested_markers
 test_lock_recovers_dead_nested_steal_chain
+test_lock_recovers_dead_directory_steal_chain
 test_lock_steal_reap_cannot_remove_successor
 test_lock_reclaims_self_held_steal_mutex
 test_lock_resumes_own_interrupted_steal_reap

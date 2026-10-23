@@ -12,6 +12,10 @@ FM_WAKE_QUEUE_LOCK="${FM_WAKE_QUEUE_LOCK:-$STATE/.wake-queue.lock}"
 FM_LOCK_STALE_AFTER="${FM_LOCK_STALE_AFTER:-2}"
 # shellcheck source=bin/fm-path-lib.sh
 . "$FM_WAKE_LIB_DIR/fm-path-lib.sh"
+# Process reads here and in every consumer use procps `ps -o` forms, which Git
+# Bash's own ps rejects; this supplies them there and is a no-op elsewhere.
+# shellcheck source=bin/fm-ps-lib.sh
+. "$FM_WAKE_LIB_DIR/fm-ps-lib.sh"
 # Resolved once at source time: fm_pid_identity and fm_path_mtime run inside 0.2s
 # confirm and 0.5s attach polls, and forking uname per call is a measurable cost on
 # the platform (Git Bash/MSYS) that already pays the highest fork price.
@@ -523,6 +527,21 @@ fm_lock_prepare_owner() {
   [ "$back" = "$mypid" ]
 }
 
+# Create symlink $2 pointing at $1. Git Bash/MSYS and Cygwin deep-copy a
+# directory for a plain `ln -s`, which turns the lock into an ordinary directory
+# readlink cannot follow, so no claim ever succeeds and acquisition never
+# returns. nativestrict creates a real Windows symlink or fails outright; it
+# needs Developer Mode or the symlink privilege, which bootstrap reports.
+fm_lock_symlink() {  # <target> <link>
+  case "$_FM_UNAME" in
+    MINGW* | MSYS* | CYGWIN*)
+      MSYS="${MSYS:+$MSYS }winsymlinks:nativestrict" \
+        CYGWIN="${CYGWIN:+$CYGWIN }winsymlinks:nativestrict" ln -s "$1" "$2"
+      ;;
+    *) ln -s "$1" "$2" ;;
+  esac
+}
+
 fm_lock_link_owner() {
   local lockdir=$1 owner
   owner=$(readlink "$lockdir" 2>/dev/null) || return 1
@@ -602,7 +621,7 @@ fm_lock_try_create() {
     fm_lock_discard_owner "$ownerdir"
     return 1
   fi
-  if ln -s "$ownerdir" "$lockdir" 2>/dev/null && fm_lock_points_to_owner "$lockdir" "$ownerdir"; then
+  if fm_lock_symlink "$ownerdir" "$lockdir" 2>/dev/null && fm_lock_points_to_owner "$lockdir" "$ownerdir"; then
     if fm_lock_claim "$lockdir" "$ownerdir" "$allowed_steal_owner"; then
       FM_LOCK_OWNER_DIR=$ownerdir
       return 0
@@ -1209,13 +1228,43 @@ fm_lock_try_acquire_steal_mutex() {  # <steal-lock>
   FM_LOCK_OWNER_DIR=
   fm_lock_try_create "$lockdir" && return 0
   fm_current_pid current || return 1
-  fm_lock_reap_dead_link "$lockdir.steal" || true
+  fm_lock_reap_dead_steal_chain "$lockdir"
   if [ "$(cat "$lockdir/pid" 2>/dev/null || true)" = "$current" ]; then
     fm_lock_remove_path "$lockdir" || true
   elif [ -e "$lockdir" ] || [ -L "$lockdir" ]; then
-    fm_lock_reap_dead_link "$lockdir" || return 1
+    fm_lock_reap_dead_link "$lockdir" || fm_lock_reap_dead_dir "$lockdir" || return 1
   fi
   fm_lock_try_create "$lockdir"
+}
+
+# Reap a plain-directory lock whose recorded holder is dead. Git Bash's
+# deep-copying `ln -s` (before fm_lock_symlink) left locks in that form, and a
+# dead one would otherwise block every later claim, since only symlink locks
+# are reaped above. A directory with no readable pid may be mid-acquire and is
+# left alone.
+fm_lock_reap_dead_dir() {  # <lockdir>
+  local lockdir=$1 pid
+  [ -d "$lockdir" ] && [ ! -L "$lockdir" ] || return 1
+  pid=$(cat "$lockdir/pid" 2>/dev/null || true)
+  case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+  fm_pid_alive "$pid" && return 1
+  fm_lock_remove_path "$lockdir"
+}
+
+# Reap every dead marker in the nested steal chain above <steal-lock>, deepest
+# first, so a chain the former recursive reclaim (or a deep-copied lock) left
+# behind cannot block the claim. Bounded to 32 levels.
+fm_lock_reap_dead_steal_chain() {  # <steal-lock>
+  local next="$1.steal" i
+  local -a chain=()
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32; do
+    [ -e "$next" ] || [ -L "$next" ] || break
+    chain+=("$next")
+    next="$next.steal"
+  done
+  for ((i = ${#chain[@]} - 1; i >= 0; i--)); do
+    fm_lock_reap_dead_link "${chain[i]}" || fm_lock_reap_dead_dir "${chain[i]}" || true
+  done
 }
 
 fm_lock_try_acquire() {

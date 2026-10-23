@@ -63,6 +63,10 @@ FM_BACKEND_DEFAULT_ROOT="$(cd "$FM_BACKEND_LIB_DIR/.." && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-${FM_ROOT:-$FM_BACKEND_DEFAULT_ROOT}}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 FM_BACKEND_CONFIG_DIR="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
+# Process reads below use procps `ps -o` forms, which Git Bash's own ps
+# rejects; this supplies them there and is a no-op elsewhere.
+# shellcheck source=bin/fm-ps-lib.sh
+. "$FM_BACKEND_LIB_DIR/fm-ps-lib.sh"
 
 # Verified backend adapters. Extend only after a backend gets its own
 # bin/backends/<name>.sh and empirical verification, mirroring AGENTS.md

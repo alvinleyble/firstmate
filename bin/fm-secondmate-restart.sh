@@ -90,6 +90,10 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 
 # shellcheck source=bin/fm-secondmate-restart-lib.sh
 . "$SCRIPT_DIR/fm-secondmate-restart-lib.sh"
+# Process reads below use procps `ps -o` forms, which Git Bash's own ps
+# rejects; this supplies them there and is a no-op elsewhere.
+# shellcheck source=bin/fm-ps-lib.sh
+. "$SCRIPT_DIR/fm-ps-lib.sh"
 # shellcheck source=bin/fm-secondmate-nudge-lib.sh
 . "$SCRIPT_DIR/fm-secondmate-nudge-lib.sh"
 # shellcheck source=bin/fm-pending-reply-lib.sh

@@ -1694,6 +1694,19 @@ A herdr, zellij, cmux, paseo, or rex home is therefore never told `tmux` is miss
 - When `config/crew-dispatch.json` exists, bootstrap also requires `jq` for dispatch profile validation.
 - When Relay is opted in, bootstrap also requires `curl` and `jq` before arming the relay poll shim.
 
+**Native Windows (Git Bash)**
+
+Firstmate runs natively on Windows inside Git Bash from Git for Windows, with these additions:
+
+- Windows Developer Mode, or the symlink privilege, is required because firstmate's locks are symlinks; bootstrap reports `MISSING_MANUAL: windows-native-symlinks` when Windows refuses one.
+- Start the primary harness from a Git Bash shell, such as a Git Bash terminal tab or a Herdr pane running Git Bash, so the session lock can find it.
+- `powershell.exe` must be reachable, because a shell that a native Windows program started is traced back to its harness through Windows' own process records.
+- For the Herdr backend, set Herdr's pane shell to Git Bash as a login shell (`[terminal]` `default_shell = 'C:\Program Files\Git\bin\bash.exe'` and `shell_mode = "login"`), because firstmate drives every task pane through POSIX commands.
+- When `python3` resolves only to the Microsoft Store placeholder, Python-backed helpers such as the test runner fail; put a `python3` that runs the installed Python ahead of it on Git Bash's `PATH`.
+- `lsof` is unavailable, so teardown's process-group fallback warns and leaves lingering task processes to treehouse's own cleanup.
+
+[`bin/fm-ps-lib.sh`](../bin/fm-ps-lib.sh) owns the process reads that make the session lock and supervision work there, including the Windows parent-chain crossing, and [`bin/backends/herdr.sh`](../bin/backends/herdr.sh) owns how a Windows Herdr pane reports its current folder.
+
 **Missing and outdated tool diagnostics**
 
 `tasks-axi` and `quota-axi` are essential bootstrap tools in every profile.

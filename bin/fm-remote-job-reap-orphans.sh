@@ -37,6 +37,10 @@ SCRIPT_DIR=$(CDPATH='' cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 
 # shellcheck source=bin/fm-remote-job-lib.sh
 . "$SCRIPT_DIR/fm-remote-job-lib.sh"
+# The process scan below uses procps `ps -u <uid> -o` forms, which Git Bash's
+# own ps rejects; this supplies them there and is a no-op elsewhere.
+# shellcheck source=bin/fm-ps-lib.sh
+. "$SCRIPT_DIR/fm-ps-lib.sh"
 
 DRY_RUN=0
 REAP_SUFFIX=/bin/fm-remote-job-worker.sh
