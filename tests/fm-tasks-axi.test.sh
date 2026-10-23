@@ -239,9 +239,29 @@ test_wrapper_single_home() {
   pass "fm-tasks-axi.sh keeps the single-home layout addressing its own code-root backlog"
 }
 
+# A drive-letter path is already absolute on Windows, so it must reach
+# tasks-axi exactly as given rather than be re-rooted under the caller's
+# directory. A stand-in tasks-axi records the arguments it receives.
+test_wrapper_passes_drive_letter_paths_through() {
+  local dir fakebin out
+  dir=$(make_split drive-letter)
+  fakebin=$(fm_fakebin "$dir/bin")
+  # shellcheck disable=SC2016 # the stand-in's own "$@" and "$a"
+  printf '#!/bin/sh\nfor a in "$@"; do printf "%%s\\n" "$a"; done\n' > "$fakebin/tasks-axi"
+  chmod +x "$fakebin/tasks-axi"
+  out=$(PATH="$fakebin:$PATH" wrapper_from_code "$dir" update call-1 \
+    --body-file 'C:/Users/x/note.md' --report='D:\notes\r.md' --relation-file rel.md) \
+    || fail "the wrapper refused drive-letter file arguments: $out"
+  assert_contains "$out" $'--body-file\nC:/Users/x/note.md' "a forward-slash drive path was re-rooted"
+  assert_contains "$out" '--report=D:\notes\r.md' "a backslash drive path was changed"
+  assert_contains "$out" "$dir/code/rel.md" "a caller-relative path was not made absolute"
+  pass "fm-tasks-axi.sh passes Windows drive-letter paths through unchanged"
+}
+
 test_guard_reports_regular_code_root_backlog
 test_guard_reports_foreign_link_and_archive
 test_guard_silent_for_single_home
+test_wrapper_passes_drive_letter_paths_through
 if [ "$HAVE_TASKS_AXI" = 1 ]; then
   test_bare_tasks_axi_fork_is_detected
   test_wrapper_writes_through_to_home

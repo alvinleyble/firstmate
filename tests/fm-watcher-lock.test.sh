@@ -452,6 +452,32 @@ test_lock_recovers_dead_nested_steal_chain() {
   pass "dead nested steal chain from an interrupted reclaim is recovered"
 }
 
+# Git Bash's deep-copying `ln -s` used to leave every lock and steal marker as a
+# plain directory, and one more nested marker on each blocked attempt.
+test_lock_recovers_dead_directory_steal_chain() {
+  local dir state lockdir rc marker dead
+  dir=$(make_case lock-dead-directory-steal-chain)
+  state="$dir/state"
+  lockdir="$state/.contend.lock"
+  dead=$(dead_pid)
+  for marker in "$lockdir" "$lockdir.steal" "$lockdir.steal.steal" "$lockdir.steal.steal.steal"; do
+    mkdir "$marker"
+    printf '%s\n' "$dead" > "$marker/pid"
+  done
+
+  rc=0
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    fm_lock_try_acquire "$2" || exit 8
+    fm_lock_release "$2"
+  ' _ "$LIB" "$lockdir" || rc=$?
+  [ "$rc" -eq 0 ] || fail "a dead directory-form steal chain kept the lock unrecoverable (rc=$rc)"
+  for marker in "$lockdir" "$lockdir.steal" "$lockdir.steal.steal" "$lockdir.steal.steal.steal"; do
+    [ ! -e "$marker" ] && [ ! -L "$marker" ] || fail "dead directory-form marker remained: $marker"
+  done
+  pass "dead directory-form lock and steal chain is recovered"
+}
+
 test_lock_reclaims_self_held_steal_mutex() {
   # A TERM that lands while this process holds the steal mutex runs the EXIT
   # path, which re-acquires the same dead-owner lock. The abandoned steal hold
@@ -562,6 +588,68 @@ SH
     *) fail "competing reaper did not report an outcome" ;;
   esac
   pass "a competing reaper cannot remove the successor's steal mutex"
+}
+
+test_lock_dir_reap_cannot_remove_successor() {
+  # The directory-form counterpart: two reapers find the same dead plain-
+  # directory steal mutex. The competitor runs to completion, replacing it with
+  # its own link, right after the first one has judged the recorded holder
+  # dead; at most one of them may end up believing it holds the mutex, and the
+  # successor's link must survive the slower reaper.
+  local dir state steal out rc dead winner
+  dir=$(make_case lock-dir-reap-race)
+  state="$dir/state"
+  steal="$state/.contend.lock.steal"
+  out="$dir/competitor"
+  dead=$(dead_pid)
+  mkdir "$steal"
+  printf '%s\n' "$dead" > "$steal/pid"
+  cat > "$dir/competitor.sh" <<'SH'
+#!/usr/bin/env bash
+. "$FM_TEST_LIB"
+if fm_lock_try_acquire_steal_mutex "$1"; then
+  printf 'won %s\n' "${BASHPID:-$$}" > "$FM_TEST_RACE_OUT"
+  exec sleep 30
+fi
+printf 'lost\n' > "$FM_TEST_RACE_OUT"
+SH
+
+  rc=0
+  FM_TEST_LIB="$LIB" FM_TEST_COMPETITOR="$dir/competitor.sh" FM_TEST_DEAD="$dead" \
+    FM_TEST_RACE_LOCK="$steal" FM_TEST_RACE_ONCE="$dir/race-once" FM_TEST_RACE_OUT="$out" \
+    FM_STATE_OVERRIDE="$state" bash -c '
+      . "$1"
+      eval "fm_test_real_pid_alive() $(declare -f fm_pid_alive | sed 1d)"
+      fm_pid_alive() {
+        local i=0
+        if [ "$1" = "$FM_TEST_DEAD" ] && mkdir "$FM_TEST_RACE_ONCE" 2>/dev/null; then
+          bash "$FM_TEST_COMPETITOR" "$FM_TEST_RACE_LOCK" >/dev/null 2>&1 &
+          while [ "$i" -lt 100 ] && [ ! -s "$FM_TEST_RACE_OUT" ]; do
+            sleep 0.05
+            i=$((i + 1))
+          done
+        fi
+        fm_test_real_pid_alive "$1"
+      }
+      fm_lock_try_acquire_steal_mutex "$2" || exit 1
+      [ "$(cat "$2/pid" 2>/dev/null)" = "${BASHPID:-$$}" ] || exit 2
+    ' _ "$LIB" "$steal" || rc=$?
+  [ -d "$dir/race-once" ] || fail "directory reap race hook never fired"
+  case "$(cat "$out" 2>/dev/null || true)" in
+    won\ *)
+      winner=$(sed 's/^won //' "$out")
+      [ "$rc" -ne 0 ] || { kill -KILL "$winner" 2>/dev/null || true; fail "competing directory reapers both hold the steal mutex"; }
+      [ -L "$steal" ] && [ "$(cat "$steal/pid" 2>/dev/null || true)" = "$winner" ] \
+        || { kill -KILL "$winner" 2>/dev/null || true; fail "the slower directory reaper removed the successor's steal mutex"; }
+      kill -KILL "$winner" 2>/dev/null || true
+      ;;
+    lost)
+      [ "$rc" -eq 0 ] || fail "no reaper acquired the dead directory steal mutex (rc=$rc)"
+      ;;
+    *) fail "competing directory reaper did not report an outcome" ;;
+  esac
+  ! compgen -G "$steal.reaped.*" >/dev/null || fail "a directory reap left a tombstone: $(echo "$steal".reaped.*)"
+  pass "a competing reaper cannot remove the successor of a dead directory steal mutex"
 }
 
 test_lock_stale_steal_single_winner_under_concurrency() {
@@ -1584,7 +1672,9 @@ test_lock_steals_dead_pid_lock
 test_lock_stale_steal_single_winner_under_concurrency
 test_lock_reclaims_dead_steal_owner_without_nested_markers
 test_lock_recovers_dead_nested_steal_chain
+test_lock_recovers_dead_directory_steal_chain
 test_lock_steal_reap_cannot_remove_successor
+test_lock_dir_reap_cannot_remove_successor
 test_lock_reclaims_self_held_steal_mutex
 test_lock_resumes_own_interrupted_steal_reap
 test_lock_live_steal_mutex_is_not_reclaimed

@@ -33,6 +33,17 @@ FM_TEST_LIB_SOURCED=1
 # suite's fixtures were written against.
 umask 022
 
+# Git Bash deep-copies a directory for `ln -s` unless asked for a native
+# symlink, so every fixture link would silently become a copy there. Native
+# symlinks need Windows Developer Mode, the same requirement production locks
+# have (bin/fm-wake-lib.sh fm_lock_symlink).
+case "${OSTYPE:-}" in
+  msys* | cygwin*)
+    export MSYS="${MSYS:+$MSYS }winsymlinks:nativestrict"
+    export CYGWIN="${CYGWIN:+$CYGWIN }winsymlinks:nativestrict"
+    ;;
+esac
+
 # Fixture Git isolation for every suite that reaches this library; the helper's
 # header owns the invariant and the layers it deliberately leaves in force.
 # shellcheck source=tests/git-config-helpers.sh

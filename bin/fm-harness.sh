@@ -77,6 +77,10 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 
 # shellcheck source=bin/fm-cursor-lib.sh
 . "$SCRIPT_DIR/fm-cursor-lib.sh"
+# Process reads below use procps `ps -o` forms, which Git Bash's own ps
+# rejects; this supplies them there and is a no-op elsewhere.
+# shellcheck source=bin/fm-ps-lib.sh
+. "$SCRIPT_DIR/fm-ps-lib.sh"
 # shellcheck source=bin/fm-gemini-lib.sh
 . "$SCRIPT_DIR/fm-gemini-lib.sh"
 

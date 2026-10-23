@@ -8,7 +8,7 @@
 #          Lines: "MISSING: <tool> (install: <command>)",
 #                 "OUTDATED: <tool> (installed: <version|unparseable>; requires <floor|capability>; upgrade: <command>)",
 #                 "PRESENTATION_UNAVAILABLE: lavish-axi (requires >=<floor>; install: <command>) - nonvisual work may proceed with plain-text decisions and reports; install or upgrade before using Lavish",
-#                 "MISSING_MANUAL: <tool> (instructions: <url>)", "NEEDS_GH_AUTH",
+#                 "MISSING_MANUAL: <tool> (instructions: <url>)" (including windows-native-symlinks on Git Bash), "NEEDS_GH_AUTH",
 #                 "BACKEND_INVALID: <name> (known: <names>)",
 #                 "STARTUP_MEMORY_BUDGET: invalid config/startup-memory-budget - <reason>",
 #                 "CREW_DISPATCH: invalid config/crew-dispatch.json - <reason>",
@@ -890,6 +890,27 @@ manual_install_url() {
   esac
 }
 
+# Firstmate's locks are symlinks (bin/fm-wake-lib.sh fm_lock_symlink). On Git
+# Bash/MSYS and Cygwin a symlink is a real one only when Windows allows it
+# (Developer Mode or the symlink privilege); otherwise every lock refuses, so
+# that permission is a required part of the toolchain there. True elsewhere.
+windows_native_symlinks_available() {
+  local dir rc=1
+  case "${OSTYPE:-}" in
+    msys* | cygwin*) ;;
+    *) return 0 ;;
+  esac
+  dir=$(mktemp -d "${TMPDIR:-/tmp}/fm-symlink-probe.XXXXXX" 2>/dev/null) || return 1
+  mkdir "$dir/target" 2>/dev/null &&
+    MSYS="${MSYS:+$MSYS }winsymlinks:nativestrict" \
+      CYGWIN="${CYGWIN:+$CYGWIN }winsymlinks:nativestrict" \
+      ln -s "$dir/target" "$dir/link" 2>/dev/null &&
+    [ -L "$dir/link" ] && rc=0
+  rm -f "$dir/link" 2>/dev/null
+  rmdir "$dir/target" "$dir" 2>/dev/null
+  return "$rc"
+}
+
 missing_tool_diagnostic() {
   local tool=$1 instructions
   if instructions=$(manual_install_url "$tool"); then
@@ -1510,6 +1531,8 @@ detect_local_tools() {
   for t in $COMMON_TOOLS; do
     command -v "$t" >/dev/null || missing_tool_diagnostic "$t"
   done
+  windows_native_symlinks_available \
+    || echo "MISSING_MANUAL: windows-native-symlinks (instructions: https://learn.microsoft.com/windows/apps/get-started/enable-your-device-for-development)"
   # The treehouse lease-support upgrade check is only relevant when the resolved
   # backend actually requires treehouse (every backend except orca, which owns its
   # own worktrees); an orca home must not be told to upgrade a provider it never uses.

@@ -539,6 +539,24 @@ fm_backend_herdr_version_check() {
 # isolated test harness) sets it explicitly; absent means herdr's own
 # "default" session. Do not use HERDR_SESSION alone for destructive test
 # cleanup; tests/herdr-test-safety.sh documents and guards that path.
+# Herdr on native Windows reports no foreground cwd for a pane, only the cwd
+# its shell last announced, and a Git Bash pane announces nothing by default.
+# Every pane firstmate creates there therefore carries a PROMPT_COMMAND that
+# reports the shell's folder as OSC 7 at each prompt, which Herdr records as the
+# pane's cwd and fm_backend_herdr_current_path reads back on that platform.
+# Elsewhere the list is empty and creation is unchanged.
+fm_backend_herdr_windows_host() {
+  case "${OSTYPE:-}" in
+    msys* | cygwin*) return 0 ;;
+  esac
+  return 1
+}
+FM_BACKEND_HERDR_CREATE_ENV=()
+if fm_backend_herdr_windows_host; then
+  # shellcheck disable=SC2016 # Expanded by the pane's own shell at each prompt.
+  FM_BACKEND_HERDR_CREATE_ENV=(--env 'PROMPT_COMMAND=printf "\033]7;file://localhost/%s\033\\\\" "$(pwd -W 2>/dev/null)"')
+fi
+
 fm_backend_herdr_session() {
   printf '%s' "${HERDR_SESSION:-default}"
 }
@@ -813,8 +831,13 @@ fm_backend_herdr_presentation_lock_namespace_valid() {
   [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
   expected_uid=$(id -u 2>/dev/null) || return 1
   owner=$(fm_backend_herdr_presentation_lock_namespace_uid "$dir") || return 1
+  [ "$owner" = "$expected_uid" ] || return 1
+  # Git Bash mounts /tmp on the user's own Windows temp folder with no POSIX
+  # permission emulation (noacl), so mode 700 can be neither set nor read
+  # back there; that folder is already private to the account.
+  fm_backend_herdr_windows_host && return 0
   mode=$(fm_backend_herdr_presentation_lock_namespace_mode "$dir") || return 1
-  [ "$owner" = "$expected_uid" ] && [ "$mode" = 700 ]
+  [ "$mode" = 700 ]
 }
 
 # Resolve the one verified running named-session socket path as an absolute
@@ -832,6 +855,13 @@ fm_backend_herdr_presentation_lock_namespace_valid() {
 fm_backend_herdr_canonical_socket_path() {  # <socket-path>
   local socket=$1 sock_dir sock_base
   [ -n "$socket" ] || return 1
+  # Herdr on native Windows reports drive-letter paths; compare them in the
+  # same POSIX form as every other path here.
+  if fm_backend_herdr_windows_host; then
+    case "$socket" in
+      [A-Za-z]:[\\/]*) socket=$(cygpath -u "$socket" 2>/dev/null) || return 1 ;;
+    esac
+  fi
   case "$socket" in
     /*) ;;
     *) return 1 ;;
@@ -1373,6 +1403,20 @@ fm_backend_herdr_death_close_pane() {  # <session> <pane-id> <shell-pid> [guard-
   return 1
 }
 
+# fm_backend_herdr_local_pid: print Herdr-reported <pid> as the pid that ps,
+# /proc, and kill address here, or return 1 when there is none. Herdr on native
+# Windows reports Windows pids, while the shimmed ps there (bin/fm-ps-lib.sh)
+# answers in MSYS pids, so the pid is translated and a process with no MSYS pid
+# is refused rather than read or signaled under an unrelated MSYS pid. Every
+# other platform, and an FM_HERDR_PS_BIN stand-in, shares Herdr's pids.
+fm_backend_herdr_local_pid() {  # <herdr-pid>
+  if [ "${FM_HERDR_PS_BIN:-ps}" = ps ] && fm_backend_herdr_windows_host && fm_ps_proc_active; then
+    fm_ps_pid_from_winpid "$1"
+    return
+  fi
+  printf '%s\n' "$1"
+}
+
 # fm_backend_herdr_pid_is_bare_shell: <pid> currently resolves to a bare
 # recognized shell process per <ps-bin>.
 # BSD ps reports comm as argv0, so a login shell arrives as "-zsh"; strip the
@@ -1451,6 +1495,7 @@ fm_backend_herdr_pane_idle_shell_sample() {  # <session> <pane-id>
 
   ps_bin=${FM_HERDR_PS_BIN:-ps}
   command -v "$ps_bin" >/dev/null 2>&1 || return 1
+  shell_pid=$(fm_backend_herdr_local_pid "$shell_pid") || return 1
   rows=$("$ps_bin" -axo pid=,ppid= 2>/dev/null) || return 1
   printf '%s\n' "$rows" | awk -v shell="$shell_pid" '
     $1 == shell { found++ }
@@ -2014,7 +2059,7 @@ fm_backend_herdr_workspace_ensure() {  # <session> <cwd> [<launcher-relationship
     printf '%s' "$wsid"
     return 0
   fi
-  out=$(fm_backend_herdr_cli "$session" workspace create --cwd "$cwd" --label "$label" --no-focus 2>/dev/null) || return 1
+  out=$(fm_backend_herdr_cli "$session" workspace create --cwd "$cwd" --label "$label" ${FM_BACKEND_HERDR_CREATE_ENV[@]+"${FM_BACKEND_HERDR_CREATE_ENV[@]}"} --no-focus 2>/dev/null) || return 1
   wsid=$(printf '%s' "$out" | jq -r '.result.workspace.workspace_id // empty' 2>/dev/null)
   [ -n "$wsid" ] || return 1
   FM_BACKEND_HERDR_WS_ID=$wsid
@@ -2176,6 +2221,7 @@ fm_backend_herdr_pane_process_state_sample() {  # <session> <pane_id>
   while [ "$i" -lt "$count" ]; do
     pid=$(printf '%s' "$info" | jq -r --argjson i "$i" \
       '.result.process_info.foreground_processes[$i].pid | select(type == "number") | floor' 2>/dev/null)
+    [ -z "$pid" ] || pid=$(fm_backend_herdr_local_pid "$pid") || pid=
     name=$(printf '%s' "$info" | jq -r --argjson i "$i" \
       '.result.process_info.foreground_processes[$i].name // empty' 2>/dev/null)
     argv0=$(printf '%s' "$info" | jq -r --argjson i "$i" '
@@ -2201,6 +2247,7 @@ fm_backend_herdr_pane_process_state_sample() {  # <session> <pane_id>
   [ "$others" -eq 0 ] || { printf 'other'; return 0; }
   ps_bin=${FM_HERDR_PS_BIN:-ps}
   command -v "$ps_bin" >/dev/null 2>&1 || { printf 'unreadable'; return 0; }
+  shell_pid=$(fm_backend_herdr_local_pid "$shell_pid") || { printf 'unreadable'; return 0; }
   rows=$(LC_ALL=C "$ps_bin" -axo pid=,ppid=,comm= 2>/dev/null) || { printf 'unreadable'; return 0; }
   printf '%s\n' "$rows" | awk -v shell="$shell_pid" '$1 == shell { found = 1 } END { exit(found ? 0 : 1) }' \
     || { printf 'unreadable'; return 0; }
@@ -2542,7 +2589,7 @@ fm_backend_herdr_create_task() {  # <container> <label> <cwd> <seeded_default_ta
 $dup_tabs
 EOF
   fi
-  out=$(fm_backend_herdr_cli "$session" tab create --workspace "$wsid" --cwd "$cwd" --label "$label" --no-focus 2>/dev/null) || return 1
+  out=$(fm_backend_herdr_cli "$session" tab create --workspace "$wsid" --cwd "$cwd" --label "$label" ${FM_BACKEND_HERDR_CREATE_ENV[@]+"${FM_BACKEND_HERDR_CREATE_ENV[@]}"} --no-focus 2>/dev/null) || return 1
   tab_id=$(printf '%s' "$out" | jq -r '.result.tab.tab_id // empty' 2>/dev/null)
   pane_id=$(printf '%s' "$out" | jq -r '.result.root_pane.pane_id // empty' 2>/dev/null)
   if [ -z "$tab_id" ] || [ -z "$pane_id" ]; then
@@ -2608,7 +2655,7 @@ fm_backend_herdr_projection_create_task() {  # <cwd> <workspace-label> <task-lab
     echo "error: herdr presentation workspace create could not capture exact active workspace and tab; refusing a focus-unsafe projection" >&2
     return 1
   }
-  if out=$(fm_backend_herdr_cli "$session" workspace create --cwd "$cwd" --label "$workspace_label" --no-focus 2>/dev/null); then
+  if out=$(fm_backend_herdr_cli "$session" workspace create --cwd "$cwd" --label "$workspace_label" ${FM_BACKEND_HERDR_CREATE_ENV[@]+"${FM_BACKEND_HERDR_CREATE_ENV[@]}"} --no-focus 2>/dev/null); then
     :
   else
     fm_backend_herdr_projection_focus_restore "$session" "$focus_before" "workspace create" || true
@@ -2637,7 +2684,7 @@ fm_backend_herdr_projection_create_task() {  # <cwd> <workspace-label> <task-lab
   }
   if out=$(fm_backend_herdr_cli "$session" tab create \
     --workspace "$FM_BACKEND_HERDR_PROJECTION_WORKSPACE_ID" \
-    --cwd "$cwd" --label "$task_label" --no-focus 2>/dev/null); then
+    --cwd "$cwd" --label "$task_label" ${FM_BACKEND_HERDR_CREATE_ENV[@]+"${FM_BACKEND_HERDR_CREATE_ENV[@]}"} --no-focus 2>/dev/null); then
     :
   else
     fm_backend_herdr_projection_focus_restore "$session" "$focus_before" "task-tab create" || true
@@ -2860,7 +2907,7 @@ fm_backend_herdr_projection_reclaim_task() {  # <session> <journal> <task-id> <h
     return 2
   fi
   if ! out=$(fm_backend_herdr_cli "$session" tab create \
-    --workspace "$meta_workspace" --cwd "$cwd" --label "$task_label" --no-focus 2>/dev/null); then
+    --workspace "$meta_workspace" --cwd "$cwd" --label "$task_label" ${FM_BACKEND_HERDR_CREATE_ENV[@]+"${FM_BACKEND_HERDR_CREATE_ENV[@]}"} --no-focus 2>/dev/null); then
     fm_backend_herdr_projection_focus_restore "$session" "$focus_before" "husk replacement create" || return 1
     echo "warning: herdr presentation reclaim for $id could not create an exact replacement; spawning flat" >&2
     return 2
@@ -3089,10 +3136,23 @@ fm_backend_herdr_target_ready() {  # <target>
 # `.result.pane.foreground_cwd` tracks the ACTUALLY RUNNING foreground
 # process's cwd instead, which is what changes when `treehouse get` enters its
 # worktree subshell - confirmed live against a real treehouse acquisition.
+#
+# Native Windows is the exception: Herdr reports no foreground_cwd there, but
+# `.cwd` follows the OSC 7 that every firstmate-created pane's shell announces
+# at each prompt (FM_BACKEND_HERDR_CREATE_ENV), so that is read instead and
+# converted to the POSIX form every caller compares against. Until the first
+# announcement it still reads the creation-time folder, which fm-spawn.sh's
+# poll already treats as the pane not having moved yet.
 fm_backend_herdr_current_path() {  # <target>
+  local pane cwd
   fm_backend_herdr_target_ready "$1" || return 0
-  fm_backend_herdr_cli "$FM_BACKEND_HERDR_SESSION" pane get "$FM_BACKEND_HERDR_PANE" 2>/dev/null \
-    | jq -r '.result.pane.foreground_cwd // empty' 2>/dev/null
+  pane=$(fm_backend_herdr_cli "$FM_BACKEND_HERDR_SESSION" pane get "$FM_BACKEND_HERDR_PANE" 2>/dev/null) || return 0
+  cwd=$(printf '%s' "$pane" | jq -r '.result.pane.foreground_cwd // empty' 2>/dev/null)
+  if [ -z "$cwd" ] && fm_backend_herdr_windows_host; then
+    cwd=$(printf '%s' "$pane" | jq -r '.result.pane.cwd // empty' 2>/dev/null)
+    [ -z "$cwd" ] || cwd=$(cygpath -u "$cwd" 2>/dev/null) || cwd=
+  fi
+  printf '%s' "$cwd"
 }
 
 # fm_backend_herdr_send_text_line: send one line of TEXT then submit,

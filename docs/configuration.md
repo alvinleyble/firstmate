@@ -1694,6 +1694,19 @@ A herdr, zellij, cmux, paseo, or rex home is therefore never told `tmux` is miss
 - When `config/crew-dispatch.json` exists, bootstrap also requires `jq` for dispatch profile validation.
 - When Relay is opted in, bootstrap also requires `curl` and `jq` before arming the relay poll shim.
 
+**Native Windows (Git Bash)**
+
+Firstmate runs natively on Windows inside Git Bash from Git for Windows, with these additions:
+
+- Windows Developer Mode, or the symlink privilege, is required because firstmate's locks are symlinks; bootstrap reports `MISSING_MANUAL: windows-native-symlinks` when Windows refuses one.
+- Start the primary harness from a Git Bash shell, such as a Git Bash terminal tab or a Herdr pane running Git Bash, so the session lock can find it.
+- `powershell.exe` must be reachable, because a shell that a native Windows program started is traced back to its harness through Windows' own process records.
+- For the Herdr backend, set Herdr's pane shell to Git Bash as a login shell (`[terminal]` `default_shell = 'C:\Program Files\Git\bin\bash.exe'` and `shell_mode = "login"`), because firstmate drives every task pane through POSIX commands.
+- When `python3` resolves only to the Microsoft Store placeholder, Python-backed helpers such as the test runner fail; put a `python3` that runs the installed Python ahead of it on Git Bash's `PATH`.
+- `lsof` is unavailable, so teardown's process-group fallback warns and leaves lingering task processes to treehouse's own cleanup.
+
+[`bin/fm-ps-lib.sh`](../bin/fm-ps-lib.sh) owns the process reads that make the session lock and supervision work there, including the Windows parent-chain crossing, and [`bin/backends/herdr.sh`](../bin/backends/herdr.sh) owns how a Windows Herdr pane reports its current folder.
+
 **Missing and outdated tool diagnostics**
 
 `tasks-axi` and `quota-axi` are essential bootstrap tools in every profile.
@@ -2717,7 +2730,7 @@ FM_DATA_OVERRIDE=        # alternate data dir, mainly for tests
 FM_PROJECTS_OVERRIDE=    # alternate projects dir, mainly for tests
 FM_CONFIG_OVERRIDE=      # alternate config dir, mainly for tests
 FM_MERGE_PASSPHRASE=     # captain's word for a base branch gated by config/merge-passphrases; --passphrase wins when both are given
-FM_PROC_ROOT_OVERRIDE=   # alternate /proc root for Linux process-identity reads in fm-wake-lib.sh and fm-teardown.sh, mainly for tests
+FM_PROC_ROOT_OVERRIDE=   # alternate /proc root for process-identity reads in fm-wake-lib.sh and fm-teardown.sh and for the Git Bash ps shim in fm-ps-lib.sh, mainly for tests
 FM_BACKEND=             # optional runtime backend override for new spawns; tmux/herdr/zellij/orca/cmux/paseo/rex support ship/scout spawns, codex-app is not accepted
 FM_TRACE_CONTEXT=       # optional trace-context override; see "Trace context propagation"
 FM_TASK_ID=             # internal task-worker marker fm-spawn.sh exports into ship and scout panes, never set by hand; bin/fm-test-run.sh refuses to execute in the repository primary checkout while it is set

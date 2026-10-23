@@ -553,6 +553,50 @@ test_stale_registration_ignores_status_and_reads_the_process() {
   pass "herdr stale registration: no registered status can outrank a shell-only process view"
 }
 
+# Herdr on native Windows reports Windows pids, while Git Bash's ps (through
+# bin/fm-ps-lib.sh) and kill answer in MSYS pids, and the two ranges overlap.
+# The fabricated /proc below holds the pane's real shell (MSYS 50, Windows 500)
+# and unrelated idle shells whose MSYS pids equal the Windows pids Herdr names.
+windows_pid_case() {  # <dir-suffix> <herdr-shell-pid> <function>
+  local dir="$TMP_ROOT/windows-pid-$1" resp log fb proc pid
+  mkdir -p "$dir/responses"; resp="$dir/responses"; log="$dir/log"; : > "$log"
+  proc="$dir/proc"
+  for pid in 50:500 500:9500 700:9700; do
+    mkdir -p "$proc/${pid%%:*}"
+    printf '1\n' > "$proc/${pid%%:*}/ppid"
+    printf '/usr/bin/bash\n' > "$proc/${pid%%:*}/exename"
+    printf '%s\n' "${pid#*:}" > "$proc/${pid%%:*}/winpid"
+    printf 'bash\0' > "$proc/${pid%%:*}/cmdline"
+    printf '%s (bash) S 1 %s %s 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 1000 0 0 0\n' \
+      "${pid%%:*}" "${pid%%:*}" "${pid%%:*}" > "$proc/${pid%%:*}/stat"
+  done
+  printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"w1:p2","shell_pid":%s,"foreground_process_group_id":%s,"foreground_processes":[{"pid":%s,"name":"bash","argv0":"bash","argv":["bash"],"cmdline":"bash"}]}}}\n' \
+    "$2" "$2" "$2" > "$resp/1.out"
+  fb=$(make_herdr_fakebin "$dir")
+  PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    FM_PS_FORCE_PROC=1 FM_PROC_ROOT_OVERRIDE="$proc" FM_PS_CACHE_DIR="$dir/ps-cache" \
+    FM_PS_WINDOWS_TABLE_CMD=true \
+    bash -c 'OSTYPE=msys
+      . "$0/bin/fm-ps-lib.sh"
+      . "$0/bin/backends/herdr.sh"
+      "$1" fmtest w1:p2' "$ROOT" "$3"
+}
+
+test_windows_herdr_pids_are_translated_before_ps_and_signals() {
+  local out rc
+  out=$(windows_pid_case mapped 500 fm_backend_herdr_pane_idle_shell_sample) && rc=0 || rc=$?
+  expect_code 0 "$rc" "the idle-shell proof of a mapped Windows shell pid"
+  assert_equals "50" "$out" "the idle-shell proof names the pane's shell by its MSYS pid, not the colliding MSYS pid 500"
+  out=$(windows_pid_case unmapped 700 fm_backend_herdr_pane_idle_shell_sample) && rc=0 || rc=$?
+  [ "$rc" -ne 0 ] && [ -z "$out" ] \
+    || fail "a Windows shell pid with no MSYS pid must refuse the idle-shell proof, got rc=$rc out='$out'"
+  out=$(windows_pid_case state-unmapped 700 fm_backend_herdr_pane_process_state_sample)
+  assert_equals "unreadable" "$out" "a Windows shell pid with no MSYS pid must not be walked as MSYS pid 700"
+  out=$(windows_pid_case state-mapped 500 fm_backend_herdr_pane_process_state_sample)
+  assert_equals "shell" "$out" "the process-state walk follows the pane's shell by its MSYS pid"
+  pass "herdr on Windows: Herdr-reported pids are translated to MSYS pids before any ps read or signal"
+}
+
 test_registered_agent_with_a_live_foreground_process_stays_alive() {
   local out
   # The real Pi shape on Herdr 0.9.0: the kernel name is the interpreter and
@@ -5957,6 +6001,7 @@ test_agent_state_bypasses_a_stale_client_shadowing_a_compatible_one
 test_recovery_grade_read_widens_only_at_its_own_boundary
 test_stale_registration_over_a_shell_only_pane_is_agent_free
 test_stale_registration_ignores_status_and_reads_the_process
+test_windows_herdr_pids_are_translated_before_ps_and_signals
 test_pane_agent_session_ref_reports_a_resumable_reference_with_its_agent
 test_pane_agent_session_ref_degrades_to_nothing_when_not_resumable
 test_registered_agent_with_a_live_foreground_process_stays_alive

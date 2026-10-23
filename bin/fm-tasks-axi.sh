@@ -87,9 +87,10 @@ esac
 
 CALLER_DIR=$(pwd)
 
+# A drive-letter path (C:/... or C:\...) is already absolute on Windows.
 absolute_from_caller() {  # <path-value>
   case "$1" in
-    ''|-|/*) printf '%s' "$1" ;;
+    ''|-|/*|[A-Za-z]:[\\/]*) printf '%s' "$1" ;;
     *) printf '%s/%s' "$CALLER_DIR" "$1" ;;
   esac
 }

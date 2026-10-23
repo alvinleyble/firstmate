@@ -22,6 +22,10 @@ _FM_SESSION_LOCK_LIB_DIR=${BASH_SOURCE[0]%/*}
 [ "$_FM_SESSION_LOCK_LIB_DIR" != "${BASH_SOURCE[0]}" ] || _FM_SESSION_LOCK_LIB_DIR=.
 # shellcheck source=bin/fm-cursor-lib.sh
 . "${_FM_SESSION_LOCK_LIB_DIR:-/}/fm-cursor-lib.sh"
+# Every process read below goes through `ps -o`, which Git Bash's own ps
+# rejects; this supplies the procps forms there and is a no-op elsewhere.
+# shellcheck source=bin/fm-ps-lib.sh
+. "${_FM_SESSION_LOCK_LIB_DIR:-/}/fm-ps-lib.sh"
 unset _FM_SESSION_LOCK_LIB_DIR
 
 # Known harness command names; extend when a new adapter is verified. omp is
@@ -206,14 +210,29 @@ fm_harness_pid_alive() {
 # non-goal. Two genuinely different live sessions sharing one id is not a
 # supported state (Claude refuses to resume a running session under its id).
 
+# Print CLAUDE_PID in the pid namespace that `ps`, `kill -0`, and the ancestry
+# walk use, or return 1. Claude Code reports its own native pid; on Git Bash
+# that is a Windows pid, and the same process is addressed there by its MSYS
+# pid (bin/fm-ps-lib.sh), so a Claude process with no MSYS pid - one not
+# started from an MSYS shell - has no usable anchor and is refused.
+fm_session_lock_claude_pid() {
+  local claude_pid=${CLAUDE_PID:-}
+  case "$claude_pid" in ''|*[!0-9]*) return 1 ;; esac
+  if fm_ps_proc_active; then
+    fm_ps_pid_from_winpid "$claude_pid"
+    return
+  fi
+  printf '%s\n' "$claude_pid"
+}
+
 # Print the Claude session id this process may own with, or return 1. $1 is the
 # ancestry list an earlier walk already produced, so a caller that walked once
 # need not walk again.
 fm_session_lock_trusted_session_id() {  # [<ancestry-pids>]
-  local id=${CLAUDE_CODE_SESSION_ID:-} claude_pid=${CLAUDE_PID:-} pids=${1:-} pid comm args
+  local id=${CLAUDE_CODE_SESSION_ID:-} claude_pid pids=${1:-} pid comm args
   [ -n "$id" ] || return 1
   case "$id" in *$'\n'*|*$'\r'*) return 1 ;; esac
-  case "$claude_pid" in ''|*[!0-9]*) return 1 ;; esac
+  claude_pid=$(fm_session_lock_claude_pid) || return 1
   if [ -z "$pids" ]; then
     pids=$(fm_harness_ancestry_pids) || return 1
   fi
@@ -266,8 +285,8 @@ fm_session_lock_anchor_pid() {
   local pids
   pids=$(fm_harness_ancestry_pids) || return 1
   if fm_session_lock_trusted_session_id "$pids" >/dev/null; then
-    printf '%s\n' "$CLAUDE_PID"
-    return 0
+    fm_session_lock_claude_pid
+    return
   fi
   _fm_harness_outermost_pid "$pids"
 }
