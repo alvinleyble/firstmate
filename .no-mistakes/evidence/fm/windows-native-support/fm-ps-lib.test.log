@@ -1,0 +1,11 @@
+ok - fm-ps-lib answers procps field reads from /proc
+ok - fm-ps-lib hands every unsupported option and field to the native ps
+ok - fm-ps-lib resolves a native parent through Git Bash launchers
+ok - fm-ps-lib resolves every parent-1 process of a scan from one Windows table read
+ok - fm-ps-lib never crosses into an unrelated Windows process
+ok - fm-ps-lib stands aside for any ps other than the platform's own
+ok - the session lock finds Claude across the Windows process boundary
+
+real	0m17.192s
+user	0m2.897s
+sys	0m3.457s

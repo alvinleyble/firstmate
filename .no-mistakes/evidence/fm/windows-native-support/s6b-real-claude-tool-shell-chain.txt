@@ -1,0 +1,9 @@
+## Real Claude Code tool shell ancestry: raw MSYS /proc ppid vs bin/fm-ps-lib.sh ppid
+  pid=136016  winpid=4916   comm=bash     raw_ppid=136015  shim_ppid=136015
+  pid=136015  winpid=2860   comm=bash     raw_ppid=1       shim_ppid=135964  <- raw ppid 1 (native Windows parent); resolved through the Windows chain
+  pid=135964  winpid=31252  comm=claude   raw_ppid=135962  shim_ppid=135962
+  pid=135962  winpid=12748  comm=timeout  raw_ppid=135960  shim_ppid=135960
+  pid=135960  winpid=5716   comm=bash     raw_ppid=1       shim_ppid=1
+## Windows parents of this shell (Get-CimInstance):
+  win 4916 bash.exe <- parent 29572
+## CLAUDE_PID=31252 -> MSYS pid 135964

@@ -1,0 +1,45 @@
+### [target] $ FM_HOME=<lab> HERDR_SESSION=fm-lab-winval-136072-20714 bin/fm-teardown.sh winscout1
+  | fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.1kA2Mz
+  | ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  | ●  WATCHER DOWN - SUPERVISION IS OFF
+  | ●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+  | ●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+  | ●  This is a supervision warning only; the guarded operation WILL still run.
+  | ●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+  | ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  | fm-captain-hold: origin winscout1 has no completed captain-call inventory
+  | REFUSED: scout task winscout1 has not passed the captain-call completion gate.
+  | Inventory its report and any visual review through bin/fm-captain-hold.sh before teardown.
+exit=1
+state/winscout1.meta present after teardown: yes
+lab session panes after teardown:
+["w1:p2","w1:p3","w2:p2"]
+treehouse pool status:
+  | A new version of treehouse is available: v3.1.2 → v3.1.5
+  | Run "treehouse update" to update
+  | 
+  | base  main  (repository default)
+  | 1     in-use       ~\.treehouse\demo-eb20c5\1\demo  (detached)
+  |                    bash.exe (32708)
+### [target] $ FM_HOME=<lab> bin/fm-captain-hold.sh complete winscout1 --none   (report reviewed: no captain calls)
+  | complete: winscout1 captain-call inventory reviewed
+exit=0
+### [target] $ FM_HOME=<lab> HERDR_SESSION=fm-lab-winval-136072-20714 bin/fm-teardown.sh winscout1
+  | fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.1kA2Mz
+  | WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+  | warning: lsof is unavailable; cannot resolve a process-group fallback for herdr task winscout1
+  | A new version of treehouse is available: v3.1.2 → v3.1.5
+  | Run "treehouse update" to update
+  | 
+  | 🌳 Terminated lingering processes: bash.exe (32708)
+  | 🌳 Worktree returned to pool.
+  | teardown winscout1 complete (window fm-lab-winval-136072-20714:w2:p2, worktree /c/Users/amfne/.treehouse/demo-eb20c5/1/demo)
+  | Backlog: winscout1 just finished (this home keeps no markdown backlog at /tmp/fm-lab.1kA2Mz/data/backlog.md). Update /tmp/fm-lab.1kA2Mz/data/backlog.md - move winscout1 to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.
+exit=0
+state/winscout1.meta present after teardown: no
+lab session panes after teardown:
+["w1:p2","w1:p3"]
+treehouse pool status:
+  | 
+  | base  main  (repository default)
+  | 1     available    ~\.treehouse\demo-eb20c5\1\demo  (detached)

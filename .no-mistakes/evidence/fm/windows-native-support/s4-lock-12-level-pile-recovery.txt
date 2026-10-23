@@ -1,0 +1,34 @@
+## Planting a 12-level dead pile in a fresh lab home: state/.wake-queue.lock is a plain directory
+## and .steal x12 nested markers are plain directories, each recording a dead pid
+dead pid used: 131765 (kill -0 fails)
+  planted: state/.wake-queue.lock
+  planted: state/.wake-queue.lock.steal
+  planted: state/.wake-queue.lock.steal.steal
+  planted: state/.wake-queue.lock.steal.steal.steal
+  planted: state/.wake-queue.lock.steal.steal.steal.steal
+  planted: state/.wake-queue.lock.steal.steal.steal.steal.steal
+  planted: state/.wake-queue.lock.steal.steal.steal.steal.steal.steal
+  planted: state/.wake-queue.lock.steal.steal.steal.steal.steal.steal.steal
+  planted: state/.wake-queue.lock.steal.steal.steal.steal.steal.steal.steal.steal
+  planted: state/.wake-queue.lock.steal.steal.steal.steal.steal.steal.steal.steal.steal
+  planted: state/.wake-queue.lock.steal.steal.steal.steal.steal.steal.steal.steal.steal.steal
+  planted: state/.wake-queue.lock.steal.steal.steal.steal.steal.steal.steal.steal.steal.steal.steal
+  planted: state/.wake-queue.lock.steal.steal.steal.steal.steal.steal.steal.steal.steal.steal.steal.steal
+### [target-12-level] code=/c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5KK87XX5X17GSB7BTXQ29B7
+### MSYS='' CYGWIN='' (empty: no ambient native-symlink opt-in)
+$ FM_HOME=<lab> timeout 90 bin/fm-inbox.sh note -- 'lock probe from target-12-level'
+  | queued 1792743599-B3QawM
+  |   lock probe from target-12-level
+  |   firstmate will pick this up at its next check.
+exit=0 elapsed=8s 
+--- state/.wake-queue.lock* after the run:
+  (none: lock released and removed)
+  steal-chain depth: 0
+--- wake queue rows mentioning the note:
+  | 1792743606	1	check	inbox:1792743599-B3QawM	check: captain inbox note 1792743599-B3QawM - lock probe from target-12-level
+
+--- everything left under state/:
+  .wake-queue
+  .wake-queue.seq
+  .watcher-down
+  inbox

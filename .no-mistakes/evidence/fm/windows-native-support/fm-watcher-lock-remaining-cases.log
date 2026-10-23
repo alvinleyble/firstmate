@@ -1,0 +1,10 @@
+ok - disposable watcher refuses inherited state outside its marked lab
+ok - live steal mutex is not reclaimed
+ok - live-held lock is not stolen
+ok - empty mid-acquire lock keeps a minimum grace
+ok - late original claimant cannot claim a recreated lock
+ok - paused mid-acquire claimant backs off to active stealer
+
+real	0m43.392s
+user	0m3.281s
+sys	0m3.591s

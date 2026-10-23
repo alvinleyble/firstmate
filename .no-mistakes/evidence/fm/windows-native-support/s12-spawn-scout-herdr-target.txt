@@ -1,0 +1,40 @@
+## AFTER (target 59c9464): scout spawn into a real Herdr 0.9.3 lab session on native Windows
+### [target] $ FM_HOME=<lab> HERDR_SESSION=fm-lab-winval-136072-20714 TREEHOUSE_ROOT=<lab>/treehouse bin/fm-spawn.sh winscout1 <lab>/projects/demo --scout "sh -c 'echo fm-scout-launch-ok; pwd'" --backend herdr
+exit=0 elapsed=64s
+  | fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.1kA2Mz
+  | spawned winscout1 harness=sh kind=scout window=fm-lab-winval-136072-20714:w2:p2 worktree=/c/Users/amfne/.treehouse/demo-eb20c5/1/demo
+--- state/winscout1.meta:
+  worktree=/c/Users/amfne/.treehouse/demo-eb20c5/1/demo
+  project=/tmp/fm-lab.1kA2Mz/projects/demo
+  kind=scout
+  backend=herdr
+  herdr_session=fm-lab-winval-136072-20714
+  herdr_pane_id=w2:p2
+--- scout pane after spawn (fm_backend_herdr_capture, last 25 lines):
+  Run "treehouse update" to update
+  
+  🌳 Setting up worktree...
+  🌳 Entered worktree at ~\.treehouse\demo-eb20c5\1\demo. Type 'exit' to return.
+  
+  amfne@sheesh MINGW64 ~/.treehouse/demo-eb20c5/1/demo ((f7c104b...))
+  $ cd -- '/c/Users/amfne/.treehouse/demo-eb20c5/1/demo'
+  
+  amfne@sheesh MINGW64 ~/.treehouse/demo-eb20c5/1/demo ((f7c104b...))
+  $ export GOTMPDIR=/tmp/fm-winscout1/gotmp
+  
+  amfne@sheesh MINGW64 ~/.treehouse/demo-eb20c5/1/demo ((f7c104b...))
+  $ export COMPACT_ADVISER_DISABLE=1
+  
+  amfne@sheesh MINGW64 ~/.treehouse/demo-eb20c5/1/demo ((f7c104b...))
+  $ export FM_TASK_ID=winscout1
+  
+  amfne@sheesh MINGW64 ~/.treehouse/demo-eb20c5/1/demo ((f7c104b...))
+  $ . '/tmp/fm-winscout1+2f39136388418524239e14e7a64a0733e5286b841a16cec1334ed94125837f2a/launch.s1792744400.137655.19063.
+  sh'
+  fm-scout-launch-ok
+  /c/Users/amfne/.treehouse/demo-eb20c5/1/demo
+  
+  amfne@sheesh MINGW64 ~/.treehouse/demo-eb20c5/1/demo ((f7c104b...))
+  $
+  --- fm_backend_herdr_current_path -> /c/Users/amfne/.treehouse/demo-eb20c5/1/demo
+  {"foreground_cwd":null,"cwd":"C:\\Users\\amfne\\.treehouse\\demo-eb20c5\\1\\demo"}

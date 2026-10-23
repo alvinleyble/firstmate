@@ -1,0 +1,47 @@
+## BEFORE (base commit 712591c): every symlink lock on Git Bash
+### [base] code=/tmp/fm-test-scratch.ebnkfQ/base
+### MSYS='' CYGWIN='' (empty: no ambient native-symlink opt-in)
+$ FM_HOME=<lab> timeout 30 bin/fm-inbox.sh note -- 'lock probe from base'
+  | 
+exit=124 elapsed=30s (KILLED BY TIMEOUT: acquisition never returned)
+--- state/.wake-queue.lock* after the run:
+  level 0: state/.wake-queue.lock : PLAIN DIRECTORY (pid=129317)
+  steal-chain depth: 0
+--- wake queue rows mentioning the note:
+
+## BEFORE (base), second attempt in the same home: the dead lock is never recovered
+### [base-retry] code=/tmp/fm-test-scratch.ebnkfQ/base
+### MSYS='' CYGWIN='' (empty: no ambient native-symlink opt-in)
+$ FM_HOME=<lab> timeout 30 bin/fm-inbox.sh note -- 'lock probe from base-retry'
+  | 
+exit=124 elapsed=30s (KILLED BY TIMEOUT: acquisition never returned)
+--- state/.wake-queue.lock* after the run:
+  level 0: state/.wake-queue.lock : PLAIN DIRECTORY (pid=129317)
+  level 1: state/.wake-queue.lock.steal : PLAIN DIRECTORY (pid=130034)
+  steal-chain depth: 1
+--- wake queue rows mentioning the note:
+
+## BEFORE (base), attempt 3 in the same home
+### [base-retry3] code=/tmp/fm-test-scratch.ebnkfQ/base
+### MSYS='' CYGWIN='' (empty: no ambient native-symlink opt-in)
+$ FM_HOME=<lab> timeout 15 bin/fm-inbox.sh note -- 'lock probe from base-retry3'
+  | 
+exit=124 elapsed=15s (KILLED BY TIMEOUT: acquisition never returned)
+--- state/.wake-queue.lock* after the run:
+  level 0: state/.wake-queue.lock : PLAIN DIRECTORY (pid=129317)
+  level 1: state/.wake-queue.lock.steal : PLAIN DIRECTORY (pid=130034)
+  steal-chain depth: 1
+--- wake queue rows mentioning the note:
+
+## BEFORE (base), attempt 4 in the same home
+### [base-retry4] code=/tmp/fm-test-scratch.ebnkfQ/base
+### MSYS='' CYGWIN='' (empty: no ambient native-symlink opt-in)
+$ FM_HOME=<lab> timeout 15 bin/fm-inbox.sh note -- 'lock probe from base-retry4'
+  | 
+exit=124 elapsed=15s (KILLED BY TIMEOUT: acquisition never returned)
+--- state/.wake-queue.lock* after the run:
+  level 0: state/.wake-queue.lock : PLAIN DIRECTORY (pid=129317)
+  level 1: state/.wake-queue.lock.steal : PLAIN DIRECTORY (pid=130034)
+  steal-chain depth: 1
+--- wake queue rows mentioning the note:
+

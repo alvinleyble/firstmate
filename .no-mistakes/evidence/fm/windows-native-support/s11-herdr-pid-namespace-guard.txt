@@ -1,0 +1,10 @@
+## Herdr-reported pids are Windows pids; ps here answers in MSYS pids (bin/fm-ps-lib.sh)
+fm_backend_herdr_local_pid <winpid 21108 of live MSYS sleep 136854> -> 136854
+ rc=0
+fm_backend_herdr_local_pid <winpid 23484 of a native claude.exe with no MSYS pid> -> '' rc=1  (refused: never read or signaled)
+  note: no MSYS pid numbered 21108 exists right now
+
+## The real task pane in the lab session (fm-lab-winval-136072-20714:w1:p2)
+{"shell_pid":null,"foreground_processes":null}
+pane_idle_shell_sample rc=1  (non-zero: no idle-shell proof, so death-close never signals anything)
+pane_process_state_sample -> 'other'

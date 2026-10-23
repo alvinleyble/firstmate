@@ -1,0 +1,23 @@
+## Linux: OSTYPE=linux-gnu uname=Linux
+### bin/fm-ps-lib.sh defines no ps function on Linux
+type -t ps after sourcing: '' (empty = untouched)
+fm_ps_proc_active: no
+### bin/backends/herdr.sh: no PROMPT_COMMAND env on create, pids pass through unchanged
+FM_BACKEND_HERDR_CREATE_ENV count: 0
+windows_host: no
+fm_backend_herdr_local_pid 4242 -> 4242
+### fm-wake-lib.sh locks on Linux: plain ln -s symlink, and a dead plain-directory steal pile is reaped
+planted: 13 plain directories recording dead pid 27
+acquired; lock is a symlink -> /tmp/lab/state/.wake-queue.lock.owner.XlFnDR
+released
+exit=0 elapsed=0s
+left under state/: 
+### tests/fm-ps-lib.test.sh on Linux
+ok - fm-ps-lib answers procps field reads from /proc
+ok - fm-ps-lib hands every unsupported option and field to the native ps
+ok - fm-ps-lib resolves a native parent through Git Bash launchers
+ok - fm-ps-lib resolves every parent-1 process of a scan from one Windows table read
+ok - fm-ps-lib never crosses into an unrelated Windows process
+ok - fm-ps-lib stands aside for any ps other than the platform's own
+ok - the session lock finds Claude across the Windows process boundary
+suite exit=0

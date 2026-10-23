@@ -1,0 +1,29 @@
+## AFTER (target 59c9464), same lab home the base code left piled (dead plain-dir lock + dead plain-dir .steal)
+### [target] code=/c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5KK87XX5X17GSB7BTXQ29B7
+### MSYS='' CYGWIN='' (empty: no ambient native-symlink opt-in)
+$ FM_HOME=<lab> timeout 60 bin/fm-inbox.sh note -- 'lock probe from target'
+  | queued 1792743560-sTTJdQ
+  |   lock probe from target
+  |   firstmate will pick this up at its next check.
+exit=0 elapsed=6s 
+--- state/.wake-queue.lock* after the run:
+  (none: lock released and removed)
+  steal-chain depth: 0
+--- wake queue rows mentioning the note:
+  | 1792743563	1	check	inbox:1792743560-sTTJdQ	check: captain inbox note 1792743560-sTTJdQ - lock probe from target
+
+## AFTER, a second note in the same home (fresh native-symlink path, nothing to reap)
+### [target-2] code=/c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5KK87XX5X17GSB7BTXQ29B7
+### MSYS='' CYGWIN='' (empty: no ambient native-symlink opt-in)
+$ FM_HOME=<lab> timeout 60 bin/fm-inbox.sh note -- 'lock probe from target-2'
+  | queued 1792743566-kg0cOu
+  |   lock probe from target-2
+  |   firstmate will pick this up at its next check.
+exit=0 elapsed=4s 
+--- state/.wake-queue.lock* after the run:
+  (none: lock released and removed)
+  steal-chain depth: 0
+--- wake queue rows mentioning the note:
+  | 1792743563	1	check	inbox:1792743560-sTTJdQ	check: captain inbox note 1792743560-sTTJdQ - lock probe from target
+  | 1792743567	2	check	inbox:1792743566-kg0cOu	check: captain inbox note 1792743566-kg0cOu - lock probe from target-2
+

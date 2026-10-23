@@ -1,0 +1,8 @@
+## Holding state/.wake-queue.lock through fm-wake-lib.sh's fm_lock_acquire_wait (the call fm-inbox.sh makes)
+acquired: rc=0
+[ -L lock ] -> yes: symlink
+readlink lock -> /tmp/fm-lab.7IJrB7/state/.wake-queue.lock.owner.zQDohm
+lock/pid -> 132589 (this shell: 132589)
+Windows view of state/ (dir /AL lists reparse points):
+  10/23/2026  04:21 PM    <SYMLINKD>     .wake-queue.lock [C:\Users\amfne\AppData\Local\Temp\fm-lab.7IJrB7\state\.wake-queue.lock.owner.zQDohm]
+released: rc=0; lock present after release: no

@@ -1,0 +1,10 @@
+## Presentation lock path for the named lab session: Herdr reports a drive-letter socket path, and /tmp is Git Bash's noacl user temp
+### [base]
+Herdr's own socket_path for fm-lab-winval-136072-20714: C:\Users\amfne\AppData\Roaming\herdr\sessions\fm-lab-winval-136072-20714\herdr.sock
+presentation_session_socket_path -> rc=1 ''
+presentation_session_lock_path   -> rc=1 ''
+### [target]
+Herdr's own socket_path for fm-lab-winval-136072-20714: C:\Users\amfne\AppData\Roaming\herdr\sessions\fm-lab-winval-136072-20714\herdr.sock
+presentation_session_socket_path -> rc=0 '/c/Users/amfne/AppData/Roaming/herdr/sessions/fm-lab-winval-136072-20714/herdr.sock'
+presentation_session_lock_path   -> rc=0 '/tmp/firstmate-herdr-presentation-197609/order-efd0af2387f363da12ae7aefd6054f38.lock'
+presentation lock namespace on disk: drwxr-xr-x 1 amfne 197609 0 Oct 23 12:36 /tmp/firstmate-herdr-presentation-197609  (Git Bash reports 755 for every folder under noacl /tmp)

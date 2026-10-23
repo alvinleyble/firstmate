@@ -1,0 +1,12 @@
+## three extra MSYS sleep.exe processes started by native powershell.exe parents (raw MSYS ppid 1)
+## ps -axo pid=,ppid=,comm= over every MSYS process (cold cache), elapsed=5876ms
+  132750 132746 powershell
+  132751 132746 powershell
+  132752 132746 powershell
+  132754 132750 sleep
+  132755 132751 sleep
+  132756 132752 sleep
+MSYS processes whose raw /proc ppid is 1: 8
+PowerShell table reads for that one ps call: 1
+per-process cache entries written: 8
+## warm repeat: PowerShell table reads: 0, elapsed=349ms

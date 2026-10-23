@@ -1,0 +1,6 @@
+ok - disposable watcher refuses inherited state outside its marked lab
+not ok - expected exactly one lock winner under concurrency, got 2
+
+real	1m3.554s
+user	0m13.758s
+sys	0m17.562s

@@ -1,0 +1,29 @@
+## Adversarial: a plain-directory lock whose recorded holder is ALIVE must not be reaped
+planted state/.wake-queue.lock as a plain directory recording live pid 132021 (/usr/bin/sleep)
+### [target-live-holder] code=/c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5KK87XX5X17GSB7BTXQ29B7
+### MSYS='' CYGWIN='' (empty: no ambient native-symlink opt-in)
+$ FM_HOME=<lab> timeout 20 bin/fm-inbox.sh note -- 'lock probe from target-live-holder'
+  | 
+exit=124 elapsed=20s (KILLED BY TIMEOUT: acquisition never returned)
+--- state/.wake-queue.lock* after the run:
+  level 0: state/.wake-queue.lock : PLAIN DIRECTORY (pid=132021)
+  steal-chain depth: 0
+--- wake queue rows mentioning the note:
+  | 1792743606	1	check	inbox:1792743599-B3QawM	check: captain inbox note 1792743599-B3QawM - lock probe from target-12-level
+
+## Holder exits; the next note recovers the now-dead lock
+pid 132021 is now dead
+### [target-after-holder-died] code=/c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5KK87XX5X17GSB7BTXQ29B7
+### MSYS='' CYGWIN='' (empty: no ambient native-symlink opt-in)
+$ FM_HOME=<lab> timeout 60 bin/fm-inbox.sh note -- 'lock probe from target-after-holder-died'
+  | queued 1792743642-s2uage
+  |   lock probe from target-after-holder-died
+  |   firstmate will pick this up at its next check.
+exit=0 elapsed=5s 
+--- state/.wake-queue.lock* after the run:
+  (none: lock released and removed)
+  steal-chain depth: 0
+--- wake queue rows mentioning the note:
+  | 1792743606	1	check	inbox:1792743599-B3QawM	check: captain inbox note 1792743599-B3QawM - lock probe from target-12-level
+  | 1792743645	2	check	inbox:1792743642-s2uage	check: captain inbox note 1792743642-s2uage - lock probe from target-after-holder-died
+

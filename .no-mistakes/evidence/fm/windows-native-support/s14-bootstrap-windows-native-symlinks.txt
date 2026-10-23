@@ -1,0 +1,8 @@
+## Windows Developer Mode: AllowDevelopmentWithoutDevLicense=1
+### (1) native symlinks allowed: $ FM_HOME=<lab> FM_BOOTSTRAP_DETECT_ONLY=1 FM_BOOTSTRAP_NETWORK=skip bin/fm-bootstrap.sh
+  | MISSING: tmux (install: brew install tmux  # or the platform's package manager)
+  exit=0
+### (2) the probe cannot create a native symlink (simulated: TMPDIR names a folder that does not exist, so the probe cannot create its link; revoking Developer Mode itself would change system state)
+  | MISSING: tmux (install: brew install tmux  # or the platform's package manager)
+  | MISSING_MANUAL: windows-native-symlinks (instructions: https://learn.microsoft.com/windows/apps/get-started/enable-your-device-for-development)
+  exit=0

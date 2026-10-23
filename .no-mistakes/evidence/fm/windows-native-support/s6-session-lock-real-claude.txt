@@ -1,0 +1,36 @@
+## Claude Code tool shell: msys pid=133024 winpid=16468 raw /proc ppid=133023
+## CLAUDE_PID=34408 (Windows pid)  CLAUDE_CODE_SESSION_ID=43c45087-9e98-498b-9969-6a836ce243ff
+
+## Ancestry through bin/fm-ps-lib.sh (what the session lock walks)
+  pid=133024 winpid=16468 comm=bash ppid=133023
+  pid=133023 winpid=5228 comm=bash ppid=132961
+  pid=132961 winpid=34408 comm=claude ppid=132959
+  pid=132959 winpid=19840 comm=timeout ppid=132958
+  pid=132958 winpid=8632 comm=bash ppid=1
+  fm_ps_pid_from_winpid $CLAUDE_PID -> 132961
+
+## BEFORE (base 712591c): $ FM_HOME=<labB> bin/fm-lock.sh
+  | error: cannot locate harness process in ancestry
+  exit=1
+## BEFORE (base): $ bin/fm-session-start.sh | grep the lock section
+  exit=0
+  | error: cannot locate harness process in ancestry
+  | ●  READ-ONLY SESSION - FLEET LOCK OWNERSHIP WAS NOT VERIFIED
+  | ●  error: cannot locate harness process in ancestry
+  | ●  Skipping every mutating step: stale Herdr child cleanup,
+  | ●  secondmate convergence, secondmate liveness, pending remote handoff retry,
+  | ●  X-mode artifacts, fleet sync, and wake-queue drain. Detect-only bootstrap
+
+## AFTER (target 59c9464): $ FM_HOME=<labT> bin/fm-lock.sh
+  | lock acquired: harness pid 132961
+  exit=0
+## AFTER: $ bin/fm-lock.sh status
+  | lock: held by live harness pid 132961
+## AFTER: state/.lock line 1 = 132961  state/.lock-session = 43c45087-9e98-498b-9969-6a836ce243ff
+## AFTER: $ bin/fm-session-start.sh  (full digest saved to s6-session-start-target.txt)
+  exit=0
+  READ-ONLY banner lines in the target digest: 0
+  | LOCK
+  | --------------------------------------------------------------------------------
+  | lock acquired: harness pid 132961
+  | 

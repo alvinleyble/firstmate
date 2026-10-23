@@ -1,0 +1,44 @@
+## platform: OSTYPE=cygwin uname=MINGW64_NT-10.0-26200 native ps=/usr/bin/ps
+
+## BEFORE: Git Bash's native ps with the procps form firstmate uses
+$ ps -o pid=,ppid=,comm= -p $$
+ps: unknown option -- o
+Try `ps --help' for more information.
+exit=1
+
+## AFTER sourcing bin/fm-ps-lib.sh: type ps -> function
+$ ps -o pid=,ppid=,comm=,stat= -p $$
+129186 129184 bash R
+exit=0
+$ ps -o lstart= -o command= -p $$   (repeatable -o)
+Fri Oct 23 16:15:04 2026 bash /tmp/fm-test-scratch.ebnkfQ/s1-ps-shim.sh /c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5KK87XX5X17GSB7BTXQ29B7
+exit=0
+$ ps -o pgid= -p $$
+129184
+exit=0
+$ ps -o ppid=,args= -p 129195   (a background child: ppid must be this shell, 129186)
+129186 bash /tmp/fm-test-scratch.ebnkfQ/s1-ps-shim.sh /c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5KK87XX5X17GSB7BTXQ29B7
+exit=0
+$ ps -axo pid=,ppid=,comm= | grep -E "^129195 "
+129195 129186 sleep
+exit=0
+$ ps -A -o pid= | wc -l
+13
+$ ps -u 197609 -o pid= | grep -c .
+14
+$ ps -o pid= -p 999999   (no such process: status 1 like procps)
+exit=1
+
+## Unsupported fields/flags fall through to native ps (e.g. %cpu, -E, -t)
+$ ps -o %cpu= -p $$
+ps: unknown option -- o
+Try `ps --help' for more information.
+exit=1
+$ ps -E -o pid= -p $$
+ps: unknown option -- E
+Try `ps --help' for more information.
+exit=1
+
+## A non-native ps first on PATH (e.g. a test fake) keeps answering for itself
+$ PATH=<fake>:$PATH ps -o pid= -p $$
+FAKE-PS -o pid= -p 129186

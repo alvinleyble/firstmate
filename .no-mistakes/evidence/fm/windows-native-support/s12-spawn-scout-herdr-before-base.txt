@@ -1,0 +1,16 @@
+## BEFORE (base 712591c): the same scout spawn into a fresh Herdr 0.9.3 lab session (treehouse pool isolated in the lab)
+### [base] $ FM_HOME=<lab> HERDR_SESSION=fm-lab-winbase-141369-4646 TREEHOUSE_ROOT=<lab>/treehouse bin/fm-spawn.sh winscoutb <lab>/projects/demo --scout "sh -c 'echo fm-scout-launch-ok; pwd'" --backend herdr
+exit=1 elapsed=5s
+  | fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.xk8A2y
+  | error: this home's task set is locked by another operation; refusing to create task winscoutb rather than racing it
+--- state/winscoutb.meta:
+  (none)
+
+## BEFORE (base), with MSYS=winsymlinks:nativestrict forced so the base lock bug is sidestepped and spawn reaches the Herdr worktree poll
+### [base-nativesymlinks] $ FM_HOME=<lab> HERDR_SESSION=fm-lab-winbase-141369-4646 TREEHOUSE_ROOT=<lab>/treehouse bin/fm-spawn.sh winscoutb2 <lab>/projects/demo --scout "sh -c 'echo fm-scout-launch-ok; pwd'" --backend herdr
+exit=1 elapsed=111s
+  | fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.xk8A2y
+  | warning: herdr presentation focus lock unavailable; using the ordinary flat layout without projection
+  | error: treehouse get did not enter an isolated worktree within 60s (last seen 'none': the pane reported no path; spawning project '/tmp/fm-lab.xk8A2y/projects/demo'); inspect window fm-lab-winbase-141369-4646:w1:p2
+--- state/winscoutb2.meta:
+  (none)

@@ -1,0 +1,24 @@
+# 40 concurrent fm_lock_try_acquire contenders on Git Bash (Windows 11), winner holds for <hold> seconds.
+# Times are ms since the first spawn. Probe: per-winner acquire/exit timestamps.
+hold=1 spawn_ms=30334 winners=2
+  pid 151206 acq +22435ms
+  pid 151206 exit +28180ms
+  pid 151327 acq +77313ms
+  pid 151327 exit +78536ms
+hold=1 spawn_ms=30209 winners=2
+  pid 152638 acq +24512ms
+  pid 152638 exit +30438ms
+  pid 152765 acq +79844ms
+  pid 152765 exit +81041ms
+hold=1 spawn_ms=30225 winners=2
+  pid 154117 acq +24280ms
+  pid 154117 exit +30387ms
+  pid 154245 acq +80338ms
+  pid 154245 exit +81577ms
+hold=15 spawn_ms=31096 winners=1
+  pid 155604 acq +23944ms
+  pid 155604 exit +41518ms
+# Reading: holders never overlap. With a 1s hold, a late contender reclaims the
+# lock ~47s after the first holder exited (a legitimate dead-pid reclaim), because
+# spawning 40 Git Bash processes takes ~30s here. With the holder alive for the
+# whole contention window (15s hold) there is exactly one winner.

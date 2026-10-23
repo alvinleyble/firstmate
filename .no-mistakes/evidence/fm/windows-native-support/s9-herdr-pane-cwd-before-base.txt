@@ -1,0 +1,10 @@
+## BEFORE (base 712591c): the same pane creation and cwd read-back in the same lab session
+### [base] code=/tmp/fm-test-scratch.ebnkfQ/base session=fm-lab-winval-136072-20714 home=/tmp/fm-lab.Bcugl8
+container_ensure -> fm-lab-winval-136072-20714:w1 (seeded tab: none)
+create_task -> tab=w1:t3 pane=w1:p3 target=fm-lab-winval-136072-20714:w1:p3
+current_path right after creation -> ''
+sent: cd '/tmp/fm-lab.Bcugl8/projects/my proj/worktree-winb1'
+current_path after cd -> ''
+RESULT: current_path does NOT report the worktree (expected '/tmp/fm-lab.Bcugl8/projects/my proj/worktree-winb1')
+--- raw Herdr pane get (cwd fields, process_info):
+{"foreground_cwd":null,"cwd":"C:\\Users\\amfne\\AppData\\Local\\Temp\\fm-lab.Bcugl8\\","shell_pid":null,"foreground":[]}

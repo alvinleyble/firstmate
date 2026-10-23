@@ -1,0 +1,82 @@
+## body file given as a drive-letter path: C:/Users/amfne/AppData/Local/Temp/fm-test-scratch.ebnkfQ/briefs/body.md
+## caller working directory: /tmp/fm-test-scratch.ebnkfQ (not the home)
+
+### [base] $ FM_HOME=<lab> fm-tasks-axi.sh add winpath-base "windows body file" --body-file C:/Users/amfne/AppData/Local/Temp/fm-test-scratch.ebnkfQ/briefs/body.md
+  | error: "Could not read --body-file path: C:\\Users\\amfne\\AppData\\Local\\Temp\\fm-test-scratch.ebnkfQ\\C;C:\\Program Files\\Git\\Users\\amfne\\AppData\\Local\\Temp\\fm-test-scratch.ebnkfQ\\briefs\\body.md"
+  | code: VALIDATION_ERROR
+  exit=2
+### [base] $ FM_HOME=<lab> fm-tasks-axi.sh show winpath-base
+  | error: "Task \"winpath-base\" not found in this backlog"
+  | code: NOT_FOUND
+  | help[1]: Run `tasks-axi list` to see existing tasks
+
+### [target] $ FM_HOME=<lab> fm-tasks-axi.sh add winpath-target "windows body file" --body-file C:/Users/amfne/AppData/Local/Temp/fm-test-scratch.ebnkfQ/briefs/body.md
+  | ok: added winpath-target -> Queued
+  | task:
+  |   id: winpath-target
+  |   title: windows body file
+  |   state: queued
+  |   blocked: no
+  |   blocked_by: none
+  |   held: no
+  |   hold_reason: "-"
+  |   hold_kind: "-"
+  |   hold_until: "-"
+  |   kind: task
+  |   repo: "-"
+  |   priority: "-"
+  |   created: 2026-10-23
+  |   closed: "-"
+  |   deps: none
+  |   links: none
+  |   body: "Body written from a C:/ path on native Windows.\n"
+  | help[2]:
+  |   - Run `tasks-axi start winpath-target` to move it to in flight
+  |   - Run `tasks-axi block winpath-target --by <other>` to record a dependency
+  exit=0
+### [target] $ FM_HOME=<lab> fm-tasks-axi.sh show winpath-target
+  | task:
+  |   id: winpath-target
+  |   title: windows body file
+  |   state: queued
+  |   blocked: no
+  |   blocked_by: none
+  |   held: no
+  |   hold_reason: "-"
+  |   hold_kind: "-"
+  |   hold_until: "-"
+  |   kind: task
+  |   repo: "-"
+  |   priority: "-"
+  |   created: 2026-10-23
+  |   closed: "-"
+  |   deps: none
+  |   links: none
+  |   body: "Body written from a C:/ path on native Windows."
+
+### [target, relative path still made absolute] $ fm-tasks-axi.sh add winpath-rel "relative body" --body-file=briefs/body.md
+  | ok: added winpath-rel -> Queued
+  | task:
+  |   id: winpath-rel
+  |   title: relative body
+  |   state: queued
+  |   blocked: no
+  |   blocked_by: none
+  |   held: no
+  |   hold_reason: "-"
+  |   hold_kind: "-"
+  |   hold_until: "-"
+  |   kind: task
+  |   repo: "-"
+  |   priority: "-"
+  |   created: 2026-10-23
+  |   closed: "-"
+  |   deps: none
+  |   links: none
+  |   body: "Body written from a C:/ path on native Windows.\n"
+  | help[2]:
+  |   - Run `tasks-axi start winpath-rel` to move it to in flight
+  |   - Run `tasks-axi block winpath-rel --by <other>` to record a dependency
+  exit=0
+  |   title: relative body
+  |   body: "Body written from a C:/ path on native Windows."

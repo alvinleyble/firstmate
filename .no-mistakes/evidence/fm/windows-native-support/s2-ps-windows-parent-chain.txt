@@ -1,0 +1,13 @@
+## Outer Git Bash: pid=132630
+
+## (a) Git Bash -> powershell.exe -> cmd.exe -> bash (cmd.exe is a Windows-only shell launcher: crossed)
+  powershell.exe winpid=33412
+  [a] inner bash: msys pid=132637 winpid=22608 raw /proc ppid=1
+  [a] shim: ps -o ppid= -p $$ -> '132635'
+  [a] resolved parent: pid=132635 comm=powershell winpid=33412
+
+## (b) Git Bash -> powershell.exe -> powershell.exe -> bash (a nested powershell.exe is NOT a launcher: walk stops, ppid stays 1)
+  outer powershell.exe winpid=33828
+  inner powershell.exe winpid=33576
+  [b] inner bash: msys pid=132657 winpid=9768 raw /proc ppid=1
+  [b] shim: ps -o ppid= -p $$ -> '1'

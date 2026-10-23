@@ -1,0 +1,10 @@
+## AFTER (target 59c9464): a task pane firstmate creates in a real Herdr 0.9.3 lab session on Windows
+### [target] code=/c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5KK87XX5X17GSB7BTXQ29B7 session=fm-lab-winval-136072-20714 home=/tmp/fm-lab.q4ceoT
+container_ensure -> fm-lab-winval-136072-20714:w1 (seeded tab: w1:t1)
+create_task -> tab=w1:t2 pane=w1:p2 target=fm-lab-winval-136072-20714:w1:p2
+current_path right after creation -> '/tmp/fm-lab.q4ceoT'
+sent: cd '/tmp/fm-lab.q4ceoT/projects/my proj/worktree-wint1'
+current_path after cd -> '/tmp/fm-lab.q4ceoT/projects/my proj/worktree-wint1'
+RESULT: current_path equals the POSIX worktree path
+--- raw Herdr pane get (cwd fields, process_info):
+{"foreground_cwd":null,"cwd":"C:\\Users\\amfne\\AppData\\Local\\Temp\\fm-lab.q4ceoT\\projects\\my proj\\worktree-wint1","shell_pid":null,"foreground":[]}

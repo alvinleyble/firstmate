@@ -1,0 +1,13 @@
+## Adversarial: this tool shell belongs to a Claude Code that was NOT started from an MSYS shell
+## (claude.exe launched by a native Windows program), so it has no MSYS pid.
+CLAUDE_PID=23484 -> fm_ps_pid_from_winpid: NONE (no MSYS pid)
+this shell: pid=132878 ps -o ppid= -> 1 (Windows chain: bash.exe launcher -> claude.exe with no MSYS pid, so the walk stops)
+  win 2772 bash.exe
+  win 5824 bash.exe
+  win 23484 claude.exe
+  win 26912 no-mistakes.exe  (no MSYS pid)
+
+$ FM_HOME=<lab> bin/fm-lock.sh
+error: cannot locate harness process in ancestry
+exit=1
+state/.lock exists: no
