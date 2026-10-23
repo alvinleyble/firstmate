@@ -1,0 +1,28 @@
+# fixture <tmp>/new (commit 27fad8e hooks), real claude -p from Git Bash, --permission-mode bypassPermissions so only the hooks gate the tool
+# prompt: run 'cd projects/foo && touch <tmp>/BLOCKED' then '(cd projects/foo && touch <tmp>/ALLOWED)' as separate Bash calls
+[hook_response] event=SessionStart exit=0 outcome=success stderr=''
+[hook_response] event=UserPromptSubmit exit=0 outcome=success stderr=''
+TOOL_USE: {"command": "cd projects/foo && touch /tmp/fm-lab-fixture.2Qvlxh/BLOCKED", "description": "Touch BLOCKED marker after cd into projects/foo"}
+TOOL_USE: {"command": "(cd projects/foo && touch /tmp/fm-lab-fixture.2Qvlxh/ALLOWED)", "description": "Touch ALLOWED marker from a subshell cd into projects/foo"}
+[hook_response] event=PreToolUse exit=0 outcome=success stderr=''
+[hook_response] event=PreToolUse exit=0 outcome=success stderr=''
+[hook_response] event=PreToolUse exit=2 outcome=error stderr='{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clo'
+TOOL_RESULT: PreToolUse:Bash hook error: [[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; exec bash "$CLAUDE_PROJECT_DIR"/bin/fm-cd-pretool-check.sh --claude]: {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level director
+[hook_response] event=PreToolUse exit=0 outcome=success stderr=''
+[hook_response] event=PreToolUse exit=0 outcome=success stderr=''
+[hook_response] event=PreToolUse exit=0 outcome=success stderr=''
+TOOL_RESULT: Shell cwd was reset to C:\Users\amfne\AppData\Local\Temp\fm-lab-fixture.2Qvlxh\new
+ASSISTANT: done
+
+Captain, the first command was refused by the persistent-cd hook before it ran, so `BLOCKED` was not created. The second command succeeded and created `ALLOWED` in `/tmp/fm-lab-fixture.2Qvlxh/`.
+[hook_response] event=Stop exit=0 outcome=success stderr=''
+[hook_response] event=Stop exit=0 outcome=success stderr=''
+[hook_response] event=Stop exit=0 outcome=success stderr=''
+RESULT: success turns 3
+## sentinels: BLOCKED exists? no; ALLOWED exists? yes
+## SessionStart LOCK section of this run:
+LOCK
+--------------------------------------------------------------------------------
+lock acquired: harness pid 225845
+
+HOME ROLE

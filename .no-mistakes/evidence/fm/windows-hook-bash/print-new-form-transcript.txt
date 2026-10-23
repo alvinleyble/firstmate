@@ -1,0 +1,43 @@
+# Real Claude Code 2.1.309 (Claude Code) started from Git Bash (GNU bash, version 5.3.15(1)-release (x86_64-pc-cygwin)) on MINGW64_NT-10.0-26200
+# fixture: disposable plain checkout of commit 27fad8e with target (exec bash) hook forms
+# command: cd <fixture>/new && env -u NO_MISTAKES_GATE -u CLAUDE* ... claude -p 'Run this exact Bash command once and then reply with only its output: bin/fm-lock.sh status' --setting-sources project --output-format stream-json --verbose --include-hook-events --model haiku --max-turns 3 --allowedTools 'Bash(bin/fm-lock.sh status)'
+# session_id: "session_id":"b1b419d7-d156-4da0-b0bd-749c3ca08921"
+## hook events / tool calls (from stream-json):
+[hook_response] event=SessionStart exit=0 outcome=success stderr=''
+[hook_response] event=UserPromptSubmit exit=0 outcome=success stderr=''
+TOOL_USE: {"command": "bin/fm-lock.sh status", "description": "Run fm-lock status script"}
+[hook_response] event=PreToolUse exit=0 outcome=success stderr=''
+[hook_response] event=PreToolUse exit=0 outcome=success stderr=''
+[hook_response] event=PreToolUse exit=0 outcome=success stderr=''
+TOOL_RESULT: lock: held by live harness pid 208296
+Shell cwd was reset to C:\Users\amfne\AppData\Local\Temp\fm-lab-fixture.2Qvlxh\new
+ASSISTANT: lock: held by live harness pid 208296
+Shell cwd was reset to C:\Users\amfne\AppData\Local\Temp\fm-lab-fixture.2Qvlxh\new
+[hook_response] event=Stop exit=0 outcome=success stderr=''
+[hook_response] event=Stop exit=0 outcome=success stderr=''
+[hook_response] event=Stop exit=0 outcome=success stderr=''
+RESULT: success turns 2
+## SessionStart digest LOCK section:
+LOCK
+--------------------------------------------------------------------------------
+lock acquired: harness pid 208296
+
+HOME ROLE
+## persisted <home>/state after the run:
+.host-mirror.jsonl
+.inactive-outcome-reconcile
+.lock
+.lock-session
+.session-start-agents-baseline
+.session-start-complete
+.startup-network.delivered
+.startup-network.report
+.startup-network.status
+.startup-network.timings
+.trace-context-effective
+.wake-queue
+home-summary.json
+terminal-outcomes
+state/.lock = 208296
+state/.lock-session = b1b419d7-d156-4da0-b0bd-749c3ca08921
+state/.session-start-complete = 208296

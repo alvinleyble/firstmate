@@ -1,0 +1,11 @@
+# CONTROL: Herdr lab fm-lab-hookbash-211821-32482 pane w1:p1 (Git Bash), fixture <tmp>/hybrid = commit 27fad8e .claude/settings.json (exec bash) BUT base e0b136c bin/fm-sessionstart-run.sh (exec nudge hand-off)
+# interactive: claude --setting-sources project --model haiku --debug-file <tmp>/debug-hybrid.log ; prompt 'ready'; /clear; /resume -> pick earlier conversation (same claude process)
+## Claude Code debug log, SessionStart command-hook lines:
+315:2026-10-23T12:41:38.067Z [DEBUG] Hooks: SessionStart:startup [[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; exec bash "$CLAUDE_PROJECT_DIR"/bin/fm-sessionstart-run.sh] finished with status 0 (58770ms)
+446:2026-10-23T12:43:05.502Z [DEBUG] Hooks: SessionStart:clear [[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; exec bash "$CLAUDE_PROJECT_DIR"/bin/fm-sessionstart-run.sh] finished with status 0 (54516ms)
+458:2026-10-23T12:43:29.899Z [DEBUG] Hooks: SessionStart:resume [[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; exec bash "$CLAUDE_PROJECT_DIR"/bin/fm-sessionstart-run.sh] finished with status 0 (3123ms)
+## resume hook output (exec nudge hand-off => nudge's lock-ancestry walk fails => spurious instruction injected):
+2026-10-23T12:43:29.899Z [DEBUG] Hooks: SessionStart:resume [[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; exec bash "$CLAUDE_PROJECT_DIR"/bin/fm-sessionstart-run.sh] finished with status 0 (3123ms)
+2026-10-23T12:43:29.899Z [DEBUG] Hook output does not start with {, treating as plain text
+2026-10-23T12:43:29.899Z [DEBUG] "Hook SessionStart:resume (SessionStart) success:\n\u2063FIRSTMATE_OP: v1 session-start: Run `bin/fm-session-start.sh` now, exactly once, before executing any other instructions."
+## state/.lock = 218976 (/c/Users/amfne/.local/bin/claude) — the very process that resumed, alive and holding the lock

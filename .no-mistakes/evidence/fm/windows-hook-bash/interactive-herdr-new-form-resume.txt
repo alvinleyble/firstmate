@@ -1,0 +1,26 @@
+# Herdr lab fm-lab-hookbash-211821-32482 pane w1:p1 (Git Bash), fixture <tmp>/new = commit 27fad8e (exec bash hooks + child nudge)
+# interactive: claude --setting-sources project --model haiku --debug-file <fixture>/...debug-new.log ; then /resume -> pick earlier conversation (same claude process)
+## Claude Code debug log, SessionStart command-hook lines (startup output truncated to first 6 lines):
+280:2026-10-23T12:38:44.277Z [DEBUG] Hooks: SessionStart:startup [[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; exec bash "$CLAUDE_PROJECT_DIR"/bin/fm-sessionstart-run.sh] finished with status 0 (69254ms)
+282:2026-10-23T12:38:44.278Z [DEBUG] "Hook SessionStart:startup (SessionStart) success:\n\n================================================================================\nSESSION START - /tmp/fm-lab-fixture.2Qvlxh/new\n================================================================================\n\nLOCK\n--------------------------------------------------------------------------------\nlock acquired: harness pid 216723\n\nHOME ROLE\n--------------------------------------------------------------------------------\nfm-role: user (default)\n\nBOOTSTRAP\n--------------------------------------------------------------------------------\nMISSING: tmux (install: brew install tmux  # or the platform's package manager)\n\nWAKE QUEUE\n------------------------------------------------- ...
+299:2026-10-23T12:39:32.371Z [DEBUG] Hooks: SessionStart:resume [[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; exec bash "$CLAUDE_PROJECT_DIR"/bin/fm-sessionstart-run.sh] finished with status 0 (2849ms)
+## debug lines immediately after the resume hook (no 'Hook SessionStart:resume ... success:' output line => hook printed nothing => nudge stayed silent):
+2026-10-23T12:39:32.371Z [DEBUG] Hooks: SessionStart:resume [[ -z "${GROK_AGENT:-}${GROK_HOOK_EVENT:-}" ] || exit 0; exec bash "$CLAUDE_PROJECT_DIR"/bin/fm-sessionstart-run.sh] finished with status 0 (2849ms)
+2026-10-23T12:39:32.371Z [DEBUG] Hook output does not start with {, treating as plain text
+2026-10-23T12:39:32.373Z [DEBUG] Invalidating session environment cache
+2026-10-23T12:39:32.373Z [DEBUG] FileHistory: No need to copy file history for resuming with same session id: a3547b9a-7790-41ff-a680-e127d91eef2b
+## state after resume (same lock owner, still alive):
+state/.lock = 216723 (/c/Users/amfne/.local/bin/claude, msys ppid 211871 = /usr/bin/bash -l )
+## pane after resume:
+❯ C:/Program Files/Git/resume
+  Listed 1 directory
+● Captain, C:/Program Files/Git/resume doesn't exist. The Git install is there, but it has no resume entry. The
+  directory holds git-bash.exe, bin, cmd, usr, and similar, and nothing I've checked points to a resume command or
+  file.
+  What did you want from it? For example, were you looking for a Git helper, a file you expected to find, or a resume
+  command for a session? If
+  ⎿  Interrupted · What should Claude do instead?
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle)
