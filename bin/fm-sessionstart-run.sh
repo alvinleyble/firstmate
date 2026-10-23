@@ -139,7 +139,9 @@ fi
 
 case "$SOURCE" in
   resume|reload|fork)
-    exec "$SCRIPT_DIR/fm-sessionstart-nudge.sh"
+    # A child, not exec: on Git Bash a second exec in a hook's process chain
+    # leaves the nudge's lock-ancestry walk a Windows parent that has exited.
+    "$SCRIPT_DIR/fm-sessionstart-nudge.sh" || true
     ;;
   clear|compact)
     if session_start_completed; then
