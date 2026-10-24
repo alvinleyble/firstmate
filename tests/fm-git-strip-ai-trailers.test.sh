@@ -430,6 +430,93 @@ SH
   pass "env-file writes the canonical hooks path so wrappers still chain the repository hook"
 }
 
+# On MSYS and Cygwin, native git hands this launch's hooks directory back in
+# its Windows spelling (D:/x for the wrapper's /d/x), through both the pane's
+# GIT_CONFIG value and rev-parse. Simulate that anywhere: <alias> is a second
+# name for <hooks> whose every hook forwards into it, and a cygpath stand-in
+# maps <alias> to <hooks> the way the real one maps D:/x to /d/x. Each forward
+# is counted, so a wrapper that re-execs itself through <alias> stops after a
+# few rounds with an error instead of hanging the suite.
+make_windows_spelling() {  # <hooks> <alias> <fakebin>
+  local hooks=$1 alias=$2 fakebin=$3 hook
+  mkdir -p "$alias"
+  hooks=$(cd "$hooks" && pwd -P)
+  alias=$(cd "$alias" && pwd -P)
+  for hook in "$hooks"/*; do
+    [ -x "$hook" ] || continue
+    cat >"$alias/${hook##*/}" <<SH
+#!/usr/bin/env bash
+n=\$((\$(cat '$alias.count' 2>/dev/null || echo 0) + 1))
+printf '%s\n' "\$n" >'$alias.count'
+if [ "\$n" -gt 20 ]; then
+  echo "hooks alias entered \$n times: the wrapper is re-running itself" >&2
+  exit 1
+fi
+exec '$hook' "\$@"
+SH
+    chmod 700 "$alias/${hook##*/}"
+  done
+  cat >"$fakebin/cygpath" <<SH
+#!/usr/bin/env bash
+while [ "\$#" -gt 0 ]; do
+  case \$1 in
+  --) shift; break ;;
+  -*) shift ;;
+  *) break ;;
+  esac
+done
+for p in "\$@"; do
+  c=\$(cd -- "\$p" 2>/dev/null && pwd -P) || { echo "cygpath: cannot convert \$p" >&2; exit 1; }
+  [ "\$c" = '$alias' ] && c='$hooks'
+  printf '%s\n' "\$c"
+done
+SH
+  chmod 700 "$fakebin/cygpath"
+}
+
+test_windows_spelling_of_the_hooks_dir_does_not_loop() {
+  local repo hooks alias fakebin channel err
+  for channel in env repo-config; do
+    repo="$TMP_ROOT/windows-spelling-$channel"
+    make_repo "$repo"
+    write_marker_hook "$repo/.git/hooks/pre-commit" project-pre-commit
+    hooks="$TMP_ROOT/hooks-windows-spelling-$channel"
+    "$STRIP" install "$hooks" "$repo" || fail "install should succeed"
+    hooks=$(cd "$hooks" && pwd -P)
+    alias="$TMP_ROOT/hooks-windows-spelling-$channel-alias"
+    fakebin=$(fm_fakebin "$TMP_ROOT/windows-spelling-$channel-tools")
+    make_windows_spelling "$hooks" "$alias" "$fakebin"
+    alias=$(cd "$alias" && pwd -P)
+    assert_not_equals "$hooks" "$(with_hooks_env "$alias" git -C "$repo" rev-parse --path-format=absolute --git-path hooks)" \
+      "git reports the alias spelling as the wrapper's own, so the case would not diverge"
+    assert_equals "$hooks" "$(PATH="$fakebin:$PATH" cygpath -u -- "$alias")" "the cygpath stand-in does not map the alias spelling"
+    printf 'note\n' >>"$repo/README.md"
+    git -C "$repo" add README.md
+    case "$channel" in
+    env)
+      err=$(PATH="$fakebin:$PATH" with_hooks_env "$alias" \
+        git -C "$repo" commit -q --trailer 'Co-authored-by: Cursor <cursoragent@cursor.com>' -m "fix: $channel" 2>&1)
+      ;;
+    repo-config)
+      # Native git on Windows reads a config path in its own spelling.
+      if command -v cygpath >/dev/null 2>&1; then
+        git -C "$repo" config core.hooksPath "$(cygpath -m -- "$alias")"
+      else
+        git -C "$repo" config core.hooksPath "$alias"
+      fi
+      err=$(PATH="$fakebin:$PATH" \
+        git -C "$repo" commit -q --trailer 'Co-authored-by: Cursor <cursoragent@cursor.com>' -m "fix: $channel" 2>&1)
+      ;;
+    esac || fail "a commit through the Windows spelling of the hooks dir via $channel failed: $err"
+    assert_not_contains "$(git -C "$repo" log -1 --format=%B)" "Co-authored-by: Cursor" \
+      "Cursor trailer survived the Windows spelling of the hooks dir via $channel"
+    if [ "$channel" = env ]; then
+      [ -f "$repo/project-pre-commit.ran" ] || fail "the project's pre-commit hook did not run under the Windows spelling"
+    fi
+  done
+  pass "the wrapper recognises the Windows spelling of its own hooks dir and neither loops nor skips the project's hook"
+}
+
 test_strip_msgfile_alone_does_not_rewrite_author_fields() {
   local msg
   msg="$TMP_ROOT/msg.txt"
@@ -512,6 +599,7 @@ test_repository_pre_push_runs_on_every_override_channel
 test_git_c_override_still_strips_and_chains_commit_hooks
 test_repository_hook_keeps_inherited_git_config
 test_env_file_canonicalizes_hooks_dir
+test_windows_spelling_of_the_hooks_dir_does_not_loop
 test_strip_msgfile_alone_does_not_rewrite_author_fields
 test_no_strip_keeps_the_message_and_still_chains
 test_push_guard_install_runs_the_guard_before_chaining
