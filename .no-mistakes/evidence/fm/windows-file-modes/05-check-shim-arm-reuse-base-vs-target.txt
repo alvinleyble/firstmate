@@ -1,0 +1,60 @@
+=== [base] S5 check-shim arm and re-arm
+$ FM_HOME=<lab> bin/fm-mail-check.sh arm   (first)
+    stderr: fm-mail-check: could not write /tmp/fm-wfm.qwE9YV/base/shim-home/state/mail.check.sh
+    exit=1
+    shim after first arm:  absent
+$ FM_HOME=<lab> bin/fm-mail-check.sh arm   (again)
+    stderr: fm-mail-check: could not write /tmp/fm-wfm.qwE9YV/base/shim-home/state/mail.check.sh
+    exit=1
+    shim after second arm: absent
+    => shim not reused
+$ FM_HOME=<lab> bin/fm-startup-growth-check.sh arm   (first)
+    stderr: fm-startup-growth-check: check shim path is unavailable
+    exit=1
+    shim after first arm:  absent
+$ FM_HOME=<lab> bin/fm-startup-growth-check.sh arm   (again)
+    stderr: fm-startup-growth-check: check shim path is unavailable
+    exit=1
+    shim after second arm: absent
+    => shim not reused
+$ FM_HOME=<lab> bin/fm-tool-update-check.sh arm   (first)
+    stderr: fm-tool-update-check: no watched tool registry at /tmp/fm-wfm.qwE9YV/base/shim-home/config/watched-tools.json
+    exit=1
+    shim after first arm:  absent
+$ FM_HOME=<lab> bin/fm-tool-update-check.sh arm   (again)
+    stderr: fm-tool-update-check: no watched tool registry at /tmp/fm-wfm.qwE9YV/base/shim-home/config/watched-tools.json
+    exit=1
+    shim after second arm: absent
+    => shim not reused
+  leftover temp/probe files in state: 
+
+=== [target] S5 check-shim arm and re-arm
+$ FM_HOME=<lab> bin/fm-mail-check.sh arm   (first)
+    stdout: armed: state/mail.check.sh
+    exit=0
+    shim after first arm:  fileid=6473924465068489 mtime_ns=1792800719.568154700 mode(read)=755
+$ FM_HOME=<lab> bin/fm-mail-check.sh arm   (again)
+    stdout: armed: state/mail.check.sh
+    exit=0
+    shim after second arm: fileid=6473924465068489 mtime_ns=1792800719.568154700 mode(read)=755
+    => existing shim reused (same file id and mtime)
+$ FM_HOME=<lab> bin/fm-startup-growth-check.sh arm   (first)
+    stdout: armed: state/startup-growth.check.sh
+    exit=0
+    shim after first arm:  fileid=128634064356778072 mtime_ns=1792800733.337133100 mode(read)=755
+$ FM_HOME=<lab> bin/fm-startup-growth-check.sh arm   (again)
+    stdout: armed: state/startup-growth.check.sh
+    exit=0
+    shim after second arm: fileid=128634064356778072 mtime_ns=1792800733.337133100 mode(read)=755
+    => existing shim reused (same file id and mtime)
+$ FM_HOME=<lab> bin/fm-tool-update-check.sh arm   (first)
+    stderr: fm-tool-update-check: no watched tool registry at /tmp/fm-wfm.qwE9YV/target/shim-home/config/watched-tools.json
+    exit=1
+    shim after first arm:  absent
+$ FM_HOME=<lab> bin/fm-tool-update-check.sh arm   (again)
+    stderr: fm-tool-update-check: no watched tool registry at /tmp/fm-wfm.qwE9YV/target/shim-home/config/watched-tools.json
+    exit=1
+    shim after second arm: absent
+    => shim not reused
+  leftover temp/probe files in state: 
+

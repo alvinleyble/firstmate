@@ -1,0 +1,24 @@
+=== [base] S5 tool-update check shim (config/watched-tools.json copied from docs/examples)
+$ FM_HOME=<lab> bin/fm-tool-update-check.sh arm   (first)
+    stderr: fm-tool-update-check: could not write /tmp/fm-wfm.qwE9YV/base/shim-home/state/tool-updates.check.sh
+    exit=1
+    shim after first arm:  absent
+$ FM_HOME=<lab> bin/fm-tool-update-check.sh arm   (again)
+    stderr: fm-tool-update-check: could not write /tmp/fm-wfm.qwE9YV/base/shim-home/state/tool-updates.check.sh
+    exit=1
+    shim after second arm: absent
+    => shim not reused
+  leftover temp/probe files in state: 
+
+=== [target] S5 tool-update check shim (config/watched-tools.json copied from docs/examples)
+$ FM_HOME=<lab> bin/fm-tool-update-check.sh arm   (first)
+    stdout: armed: state/tool-updates.check.sh
+    exit=0
+    shim after first arm:  fileid=16044073672938274 mtime_ns=1792800783.967820300 mode(read)=755
+$ FM_HOME=<lab> bin/fm-tool-update-check.sh arm   (again)
+    stdout: armed: state/tool-updates.check.sh
+    exit=0
+    shim after second arm: fileid=16044073672938274 mtime_ns=1792800783.967820300 mode(read)=755
+    => existing shim reused (same file id and mtime)
+  leftover temp/probe files in state: 
+

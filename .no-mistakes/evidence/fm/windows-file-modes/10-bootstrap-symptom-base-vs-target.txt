@@ -1,0 +1,14 @@
+=== [base] S9 FM_HOME=<lab> FM_BOOTSTRAP_NETWORK=skip bin/fm-bootstrap.sh
+  owned contributions: [   {     "url": "https://github.com/o/r/pull/1",     "tasks": [       "task-a"     ],     "final": false   } ] 
+  bootstrap exit=0 after 14s; full output: base-bootstrap-output.txt
+  lines about custom checks / contribution observation:
+    2:error: custom check is unavailable
+    3:MISSING: contribution observation could not be armed; coverage is unconfirmed
+  contributions artifacts in state: contributions.check.sh 
+
+=== [target] S9 FM_HOME=<lab> FM_BOOTSTRAP_NETWORK=skip bin/fm-bootstrap.sh
+  owned contributions: [   {     "url": "https://github.com/o/r/pull/1",     "tasks": [       "task-a"     ],     "final": false   } ] 
+  bootstrap exit=0 after 26s; full output: target-bootstrap-output.txt
+  lines about custom checks / contribution observation:
+  contributions artifacts in state: contributions.check.sh contributions.check-trust 
+

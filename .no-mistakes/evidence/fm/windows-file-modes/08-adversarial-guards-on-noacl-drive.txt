@@ -1,0 +1,50 @@
+=== [target] S7 guards on the real noacl drive (OSTYPE=cygwin)
+--- baseline: a plain private custom check registers ---
+$ FM_HOME=<lab> bin/fm-check-register.sh custom
+    stdout: registered: state/custom.check.sh
+    exit=0
+--- single-link test: a hardlinked custom check ---
+    link count: 2
+$ FM_HOME=<lab> bin/fm-check-register.sh custom
+    stderr: error: custom check is unavailable
+    exit=1
+--- type test: a directory at the custom check path ---
+$ FM_HOME=<lab> bin/fm-check-register.sh custom
+    stderr: error: custom check is unavailable
+    exit=1
+--- symlink test: a native symlink at the custom check path ---
+    native symlink created: /tmp/fm-wfm.qwE9YV/adversarial-home/outside-check.sh
+$ FM_HOME=<lab> bin/fm-check-register.sh custom
+    stderr: error: custom check is unavailable
+    exit=1
+--- OS gate: same entrypoint, same noacl file, OSTYPE forced to linux-gnu (exact comparison) ---
+    custom.check.sh read mode: 755
+$ OSTYPE=linux-gnu; . bin/fm-check-register.sh custom
+    stderr: error: custom check is unavailable
+    exit=1
+$ OSTYPE=msys;      . bin/fm-check-register.sh custom
+    stdout: registered: state/custom.check.sh
+    exit=0
+--- tampered bytes after registration are still refused (trust binding untouched) ---
+$ fm_custom_check_registered <state> custom (after tamper)
+    stdout: not registered
+    exit=1
+--- procevent owner token still compared ---
+$ bin/fm-procevent.sh retire src-a --if-owner <wrong token>
+    stderr: error: source registration does not match the expected owner: src-a
+    exit=1
+$ bin/fm-procevent.sh retire src-a --if-owner <right token>
+    stdout: retired: src-a
+    exit=0
+    src-a.source after: retired
+--- probe is cached per directory per process and removed ---
+  f-a accepted as 600 (reads 644)
+  f-b accepted as 600 (reads 644)
+  f-c accepted as 600 (reads 644)
+  f-d accepted as 600 (reads 644)
+  f-e accepted as 600 (reads 644)
+  other/g accepted as 600 (reads 644)
+    probes created in that one process: 2 (one per directory)
+      mktemp /tmp/fm-wfm.qwE9YV/adversarial-home/state/.fm-mode-probe.XXXXXX
+      mktemp /tmp/fm-wfm.qwE9YV/adversarial-home/other/.fm-mode-probe.XXXXXX
+    probe files left anywhere in the lab: 0

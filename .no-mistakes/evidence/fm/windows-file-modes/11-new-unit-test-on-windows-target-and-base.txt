@@ -1,0 +1,7 @@
+$ bash tests/fm-pr-check-security.test.sh   (only test_private_mode_tolerance_is_limited_to_mode_dropping_windows_mounts; target 37e088f bin/fm-pr-lib.sh; Git Bash on Windows)
+ok - private-mode tolerance applies only on a Git Bash or Cygwin mount that drops permission bits
+exit=0
+
+$ same test with base 597c675 bin/fm-pr-lib.sh swapped in (regression check: must fail)
+not ok - a Git Bash noacl mount refused an artifact it cannot mark private
+exit=1

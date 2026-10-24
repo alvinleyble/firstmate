@@ -1,0 +1,41 @@
+=== [base] S6 procevent
+  state/procevent/src-a.source written (chmod 0600; read mode 644)
+$ FM_HOME=<lab> bin/fm-procevent.sh retire src-a
+    stderr: error: cannot safely read extension registration ownership: src-a
+    exit=1
+  results/src-a.1.extension written (chmod 0600; read mode 644)
+$ FM_HOME=<lab> bin/fm-procevent.sh classify <lab>/state/results/src-a.1.result
+    stderr: error: captured extension result has an unreadable owner identity: /tmp/fm-wfm.qwE9YV/base/procevent-home/state/results/src-a.1.result
+    exit=1
+  -- exact-700 private directories (bin/fm-procevent-lib.sh preparers, sourced from base) --
+$ fm_procevent_capture_inbox_prepare <lab>/state
+    exit=1
+$ fm_procevent_capture_reservation_prepare <lab>/state
+    exit=1
+$ fm_procevent_extension_staging_prepare <lab>/state
+    exit=1
+  state dirs: procevent(read 755) procevent-inbox(read 755) procevent-capture-reservations(read 755) 
+  leftover mode probes: 0
+
+=== [target] S6 procevent
+  state/procevent/src-a.source written (chmod 0600; read mode 644)
+$ FM_HOME=<lab> bin/fm-procevent.sh retire src-a
+    stderr: error: extension registration requires its exact --if-owner token: src-a
+    exit=1
+  results/src-a.1.extension written (chmod 0600; read mode 644)
+$ FM_HOME=<lab> bin/fm-procevent.sh classify <lab>/state/results/src-a.1.result
+    stderr: error[platform-unsupported]: extension bindings require a POSIX user identity
+    exit=1
+  -- exact-700 private directories (bin/fm-procevent-lib.sh preparers, sourced from target) --
+$ fm_procevent_capture_inbox_prepare <lab>/state
+    stdout: /tmp/fm-wfm.qwE9YV/target/procevent-home/state/procevent-inbox
+    exit=0
+$ fm_procevent_capture_reservation_prepare <lab>/state
+    stdout: /tmp/fm-wfm.qwE9YV/target/procevent-home/state/procevent-capture-reservations
+    exit=0
+$ fm_procevent_extension_staging_prepare <lab>/state
+    stdout: /tmp/fm-wfm.qwE9YV/target/procevent-home/state/procevent
+    exit=0
+  state dirs: procevent(read 755) procevent-inbox(read 755) procevent-capture-reservations(read 755) 
+  leftover mode probes: 0
+

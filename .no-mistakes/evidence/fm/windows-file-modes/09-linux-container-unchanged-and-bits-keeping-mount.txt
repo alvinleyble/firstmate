@@ -1,0 +1,74 @@
+container: Linux 6.6.87.2-microsoft-standard-WSL2 bash 5.2.37(1)-release OSTYPE=linux-gnu
+
+### OSTYPE=native on a bits-keeping filesystem: base vs target output IDENTICAL
+--- target ---
+OSTYPE=linux-gnu  chmod=600 required=600 -> accept
+OSTYPE=linux-gnu  chmod=600 required=700 -> refuse
+OSTYPE=linux-gnu  chmod=644 required=600 -> refuse
+OSTYPE=linux-gnu  chmod=644 required=700 -> refuse
+OSTYPE=linux-gnu  chmod=640 required=600 -> refuse
+OSTYPE=linux-gnu  chmod=640 required=700 -> refuse
+OSTYPE=linux-gnu  chmod=400 required=600 -> refuse
+OSTYPE=linux-gnu  chmod=400 required=700 -> refuse
+OSTYPE=linux-gnu  chmod=700 required=600 -> refuse
+OSTYPE=linux-gnu  chmod=700 required=700 -> accept
+OSTYPE=linux-gnu  chmod=755 required=600 -> refuse
+OSTYPE=linux-gnu  chmod=755 required=700 -> refuse
+OSTYPE=linux-gnu  chmod=750 required=600 -> refuse
+OSTYPE=linux-gnu  chmod=750 required=700 -> refuse
+OSTYPE=linux-gnu  chmod=600 hardlinked     -> refuse
+probes run: 0; probe files left: 0
+fm-check-register.sh with chmod 755 check: error: custom check is unavailable
+fm-check-register.sh with chmod 700 check: registered: state/c.check.sh
+
+### OSTYPE=msys on a bits-keeping filesystem: base vs target output DIFFERENT
+--- target ---
+OSTYPE=msys       chmod=600 required=600 -> accept
+OSTYPE=msys       chmod=600 required=700 -> refuse
+OSTYPE=msys       chmod=644 required=600 -> refuse
+OSTYPE=msys       chmod=644 required=700 -> refuse
+OSTYPE=msys       chmod=640 required=600 -> refuse
+OSTYPE=msys       chmod=640 required=700 -> refuse
+OSTYPE=msys       chmod=400 required=600 -> refuse
+OSTYPE=msys       chmod=400 required=700 -> refuse
+OSTYPE=msys       chmod=700 required=600 -> refuse
+OSTYPE=msys       chmod=700 required=700 -> accept
+OSTYPE=msys       chmod=755 required=600 -> refuse
+OSTYPE=msys       chmod=755 required=700 -> refuse
+OSTYPE=msys       chmod=750 required=600 -> refuse
+OSTYPE=msys       chmod=750 required=700 -> refuse
+OSTYPE=msys       chmod=600 hardlinked     -> refuse
+probes run: 1; probe files left: 0
+fm-check-register.sh with chmod 755 check: error: custom check is unavailable
+fm-check-register.sh with chmod 700 check: registered: state/c.check.sh
+--- diff base target ---
+16c16
+< probes run: 0; probe files left: 0
+---
+> probes run: 1; probe files left: 0
+
+### OSTYPE=cygwin on a bits-keeping filesystem: base vs target output DIFFERENT
+--- target ---
+OSTYPE=cygwin     chmod=600 required=600 -> accept
+OSTYPE=cygwin     chmod=600 required=700 -> refuse
+OSTYPE=cygwin     chmod=644 required=600 -> refuse
+OSTYPE=cygwin     chmod=644 required=700 -> refuse
+OSTYPE=cygwin     chmod=640 required=600 -> refuse
+OSTYPE=cygwin     chmod=640 required=700 -> refuse
+OSTYPE=cygwin     chmod=400 required=600 -> refuse
+OSTYPE=cygwin     chmod=400 required=700 -> refuse
+OSTYPE=cygwin     chmod=700 required=600 -> refuse
+OSTYPE=cygwin     chmod=700 required=700 -> accept
+OSTYPE=cygwin     chmod=755 required=600 -> refuse
+OSTYPE=cygwin     chmod=755 required=700 -> refuse
+OSTYPE=cygwin     chmod=750 required=600 -> refuse
+OSTYPE=cygwin     chmod=750 required=700 -> refuse
+OSTYPE=cygwin     chmod=600 hardlinked     -> refuse
+probes run: 1; probe files left: 0
+fm-check-register.sh with chmod 755 check: error: custom check is unavailable
+fm-check-register.sh with chmod 700 check: registered: state/c.check.sh
+--- diff base target ---
+16c16
+< probes run: 0; probe files left: 0
+---
+> probes run: 1; probe files left: 0

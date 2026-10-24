@@ -1,0 +1,28 @@
+=== [base] root=/tmp/fm-wfm.qwE9YV/base  OSTYPE=cygwin umask=0022 commit=597c675
+
+--- S1 contribution observation arm (what bootstrap and fm-pr-check call) ---
+$ FM_HOME=<lab> bin/fm-contributions.sh arm
+    stderr: error: custom check is unavailable
+    exit=1
+    contributions.check.sh                     mode(read)=755 links=1
+
+--- S2/S3 PR-ready recording then merge for task-a ---
+$ FM_HOME=<lab> bin/fm-pr-check.sh task-a https://github.com/o/r/pull/1
+    stderr: ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    stderr: ●  WATCHER DOWN - SUPERVISION IS OFF
+    stderr: ●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+    stderr: ●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+    stderr: ●  This is a supervision warning only; the guarded operation WILL still run.
+    stderr: ●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+    stderr: ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    stderr: error: could not prepare PR poll
+    exit=1
+  task-a.meta pr lines: 
+$ FM_HOME=<lab> bin/fm-pr-merge.sh task-a https://github.com/o/r/pull/1
+    stderr: WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+    stderr: error: could not prepare PR poll
+    exit=1
+  forge merge calls: 
+    .guard-watcher-stale-banner                mode(read)=644 links=1
+    task-a.meta                                mode(read)=644 links=1
+

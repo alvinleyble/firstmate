@@ -1,0 +1,3 @@
+MISSING: tmux (install: brew install tmux  # or the platform's package manager)
+error: custom check is unavailable
+MISSING: contribution observation could not be armed; coverage is unconfirmed

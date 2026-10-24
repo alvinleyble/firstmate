@@ -1,0 +1,20 @@
+=== [base] S4 teardown of merged task-a (state holds task-a.merge-authority, read mode 644)
+$ FM_HOME=<lab> bin/fm-teardown.sh task-a --force
+    stderr: fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-wfm.qwE9YV/teardown-base/home
+    stderr: WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+    stderr: REFUSED: unsafe task PR-check artifact; preserving task state.
+    exit=1
+  remaining task-a artifacts: task-a.check.sh task-a.merge-authority task-a.meta task-a.pr-poll task-a.pr-poll-merge-notified task-a.pr-poll-registration 
+
+=== [target] S4 teardown of merged task-a (state holds task-a.merge-authority, read mode 644)
+$ FM_HOME=<lab> bin/fm-teardown.sh task-a --force
+    stdout: /tmp/fm-wfm.qwE9YV/target/prflow/project: skipped: not a directory
+    stdout: teardown task-a complete (window firstmate:fm-task-a, worktree /tmp/fm-wfm.qwE9YV/target/prflow/wt)
+    stdout: Backlog: task-a just finished (this home keeps no markdown backlog at /tmp/fm-wfm.qwE9YV/target/prflow/home/data/backlog.md). Update /tmp/fm-wfm.qwE9YV/target/prflow/home/data/backlog.md - move task-a to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.
+    stderr: fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-wfm.qwE9YV/target/prflow/home
+    stderr: WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+    stderr: warning: lsof is unavailable; cannot resolve the tmux pane process group for task-a
+    stderr: WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+    exit=0
+  remaining task-a artifacts: 
+

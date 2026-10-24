@@ -1,0 +1,35 @@
+=== [base] S3 merge with LF jq (PATH=<fake gh>:<jq -b shim>:$PATH)
+$ FM_HOME=<lab> bin/fm-pr-merge.sh task-a https://github.com/o/r/pull/1
+    stderr: error: could not prepare PR poll
+    exit=1
+  forge merge calls: 
+    .guard-watcher-stale-banner                mode(read)=644 links=1
+    task-a.meta                                mode(read)=644 links=1
+
+=== [target] S3 merge with LF jq (PATH=<fake gh>:<jq -b shim>:$PATH)
+$ FM_HOME=<lab> bin/fm-pr-merge.sh task-a https://github.com/o/r/pull/1
+    stdout: armed: state/task-a.check.sh
+    stdout: verified: https://github.com/o/r/pull/1 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+    stderr: verified: https://github.com/o/r/pull/1 is open and mergeable, with every unwaived required check reported and every unwaived check green at head 0123456789abcdef0123456789abcdef01234567
+    exit=0
+  forge merge calls: pr merge 1 --repo o/r --match-head-commit 0123456789abcdef0123456789abcdef01234567 --squash 
+  task-a.merge-authority:
+      fm-merge-authority-v1
+      github
+      github.com
+      o/r
+      1
+      attended
+    .guard-watcher-stale-banner                mode(read)=644 links=1
+    .wake-queue                                mode(read)=644 links=1
+    .wake-queue.seq                            mode(read)=644 links=1
+    .watcher-down                              mode(read)=644 links=1
+    contributions.check-trust                  mode(read)=644 links=1
+    contributions.check.sh                     mode(read)=755 links=1
+    task-a.check.sh                            mode(read)=755 links=1
+    task-a.merge-authority                     mode(read)=644 links=1
+    task-a.meta                                mode(read)=644 links=1
+    task-a.pr-poll                             mode(read)=644 links=1
+    task-a.pr-poll-merge-notified              mode(read)=644 links=1
+    task-a.pr-poll-registration                mode(read)=644 links=1
+
