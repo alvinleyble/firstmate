@@ -1221,6 +1221,69 @@ test_live_artifact_single_link_and_privacy_validation() {
   pass "live poll and custom-check artifacts require private single-link files"
 }
 
+# Git Bash and Cygwin mount Windows drives noacl, where chmod succeeds but stat
+# answers bits derived from the file type. A fake stat that always reports 644
+# stands in for that mount on any host; uname is faked to Linux so the library
+# reads modes through the PATH stat on macOS too.
+mode_dropping_fakebin() {  # <dir>
+  local fakebin="$1/mode-fakebin"
+  mkdir -p "$fakebin"
+  cat > "$fakebin/stat" <<SH
+#!/usr/bin/env bash
+case "\${2:-}" in
+  %a) printf '644\n' ;;
+  %d) "$REAL_STAT" -c %d "\$3" 2>/dev/null || /usr/bin/stat -f %d "\$3" ;;
+  %h) "$REAL_STAT" -c %h "\$3" 2>/dev/null || /usr/bin/stat -f %l "\$3" ;;
+  *) exit 2 ;;
+esac
+SH
+  printf '#!/usr/bin/env bash\nprintf "Linux\\n"\n' > "$fakebin/uname"
+  chmod +x "$fakebin/stat" "$fakebin/uname"
+  printf '%s\n' "$fakebin"
+}
+
+private_file_valid_on() {  # <ostype> <fakebin-or-empty> <path> <mode>
+  PATH="${2:+$2:}$PATH" bash -c '
+    OSTYPE=$1
+    . "$2"
+    device=$(fm_pr_file_device "$(dirname -- "$3")") || exit 3
+    fm_pr_private_file_valid "$3" "$4" "$device"
+  ' _ "$1" "$ROOT/bin/fm-pr-lib.sh" "$3" "$4"
+}
+
+test_private_mode_tolerance_is_limited_to_mode_dropping_windows_mounts() {
+  local dir state fakebin file probe shared
+  dir="$TMP_ROOT/private-mode-dropping-mount"
+  state="$dir/state"
+  mkdir -p "$state"
+  fakebin=$(mode_dropping_fakebin "$dir")
+  file="$state/task-a.pr-poll"
+  printf 'data\n' > "$file"
+  chmod 0600 "$file"
+  private_file_valid_on msys "$fakebin" "$file" 600 \
+    || fail "a Git Bash noacl mount refused an artifact it cannot mark private"
+  private_file_valid_on cygwin "$fakebin" "$file" 700 \
+    || fail "a Cygwin noacl mount refused an artifact it cannot mark private"
+  ! private_file_valid_on linux-gnu "$fakebin" "$file" 600 \
+    || fail "a non-Windows host accepted a mode it did not read back"
+  ln "$file" "$dir/task-a.alias"
+  ! private_file_valid_on msys "$fakebin" "$file" 600 \
+    || fail "the mode tolerance also waived the single-link test"
+  rm -f "$dir/task-a.alias"
+  probe=$(mktemp "$dir/.host-mode-probe.XXXXXX")
+  chmod 0644 "$probe"
+  shared=$(file_mode "$probe")
+  chmod 0600 "$probe"
+  if [ "$(file_mode "$probe")" != "$shared" ]; then
+    chmod 0644 "$file"
+    ! private_file_valid_on msys "" "$file" 600 \
+      || fail "a Git Bash mount that keeps permission bits accepted a non-private artifact"
+  fi
+  rm -f "$probe"
+  [ -z "$(find "$state" -name '.fm-mode-probe.*')" ] || fail "the mode probe left a file behind"
+  pass "private-mode tolerance applies only on a Git Bash or Cygwin mount that drops permission bits"
+}
+
 install_final_publication_fault() {
   local dir=$1
   cat > "$dir/fakebin/mv" <<'SH'
@@ -3640,6 +3703,7 @@ test_atomic_interruption_leaves_no_partial_artifact
 test_concurrent_watcher_sees_only_complete_publication
 test_poll_publication_refuses_unsafe_destinations
 test_live_artifact_single_link_and_privacy_validation
+test_private_mode_tolerance_is_limited_to_mode_dropping_windows_mounts
 test_device_renumbered_poll_stays_armed
 test_device_rerecord_refuses_tampered_artifacts
 test_device_rerecord_serializes_direct_rearm
