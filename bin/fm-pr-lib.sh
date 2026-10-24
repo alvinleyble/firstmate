@@ -351,24 +351,24 @@ fm_pr_file_mode_is() {
 _FM_PR_MODE_DROPPED_DIRS=
 _FM_PR_MODE_KEPT_DIRS=
 fm_pr_mode_bits_dropped() {  # <directory>
-  local dir=$1 probe private shared
+  local mode_dir=$1 probe private shared
   case "${OSTYPE:-}" in
     msys* | cygwin*) ;;
     *) return 1 ;;
   esac
-  case $'\n'"$_FM_PR_MODE_DROPPED_DIRS" in *$'\n'"$dir"$'\n'*) return 0 ;; esac
-  case $'\n'"$_FM_PR_MODE_KEPT_DIRS" in *$'\n'"$dir"$'\n'*) return 1 ;; esac
-  probe=$(mktemp "$dir/.fm-mode-probe.XXXXXX" 2>/dev/null) || return 1
+  case $'\n'"$_FM_PR_MODE_DROPPED_DIRS" in *$'\n'"$mode_dir"$'\n'*) return 0 ;; esac
+  case $'\n'"$_FM_PR_MODE_KEPT_DIRS" in *$'\n'"$mode_dir"$'\n'*) return 1 ;; esac
+  probe=$(mktemp "$mode_dir/.fm-mode-probe.XXXXXX" 2>/dev/null) || return 1
   chmod 0600 "$probe" 2>/dev/null || true
   private=$(fm_pr_file_mode "$probe")
   chmod 0644 "$probe" 2>/dev/null || true
   shared=$(fm_pr_file_mode "$probe")
   rm -f -- "$probe"
   if [ -n "$private" ] && [ "$private" = "$shared" ]; then
-    _FM_PR_MODE_DROPPED_DIRS+="$dir"$'\n'
+    _FM_PR_MODE_DROPPED_DIRS+="$mode_dir"$'\n'
     return 0
   fi
-  _FM_PR_MODE_KEPT_DIRS+="$dir"$'\n'
+  _FM_PR_MODE_KEPT_DIRS+="$mode_dir"$'\n'
   return 1
 }
 
