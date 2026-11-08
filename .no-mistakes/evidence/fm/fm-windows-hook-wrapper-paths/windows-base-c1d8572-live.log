@@ -1,0 +1,30 @@
+[windows-base] os=MINGW64_NT-10.0-26200 git=git version 2.55.0.windows.3 cygpath=/usr/bin/cygpath bin=/tmp/fm-hookwrap-src.5YTG6r/base/bin
+[windows-base] === scenario commit: git commit in the worker pane (project pre-commit + commit-msg hooks present) ===
+[windows-base] installed wrappers at /tmp/fm-hookwrap.lfitoR/state/task-1.git-hooks
+[windows-base] pane cmd: git commit -q --trailer 'Co-authored-by: Cursor <cursoragent@cursor.com>' --trailer 'Co-authored-by: Jane Human <jane@example.com>' -m 'fix: windows hook wrapper'
+[windows-base]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.lfitoR/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[windows-base]   exit=124 elapsed=343s
+[windows-base]   timed out: Windows processes whose command line names this lab's hooks dir:
+[windows-base]   pre-commit wrapper processes alive after the timeout: 
+[windows-base]   HEAD message: init
+[windows-base]   project hook log:
+[windows-base] FAIL: commit did not complete (exit 124 after 343s)
+[windows-base] FAIL: commit object missing
+[windows-base] FAIL: human trailer missing
+[windows-base] FAIL: project pre-commit ran 0 times
+[windows-base] FAIL: project commit-msg ran 0 times
+[windows-base] === scenario push: git push from the worker pane (project pre-push hook present) ===
+[windows-base] installed wrappers at /tmp/fm-hookwrap.dHbvK1/state/task-1.git-hooks
+[windows-base] pane cmd: git push -q origin HEAD:refs/heads/fm/task-1
+[windows-base]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.dHbvK1/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[windows-base]   exit=124 elapsed=59s
+[windows-base]   | error: failed to push some refs to 'C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.dHbvK1/origin.git'
+[windows-base]   | fatal: unable to write flush packet: Broken pipe
+[windows-base]   timed out: Windows processes whose command line names this lab's hooks dir:
+[windows-base]   ps | 119420 parent=142512 C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -Command "$w='C:\Users\amfne\AppData\Local\Temp\fm-hookwrap.dHbvK1'; Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($w) } | ForEach-Object { '{0} parent={1} {2}' -f $_.ProcessId,$_.ParentProcessId,$_.CommandLine }"
+[windows-base]   pre-commit wrapper processes alive after the timeout: 1
+[windows-base]   project hook log:
+[windows-base] FAIL: push did not complete (exit 124 after 59s)
+[windows-base] FAIL: remote branch missing
+[windows-base] FAIL: project pre-push ran 0 times
+[windows-base] TOTAL FAILURES: 8

@@ -1,0 +1,165 @@
+##### Linux: live driver, fixed wrapper (worktree HEAD 7f7033d)
+[linux-fixed] os=Linux git=git version 2.49.1 cygpath=none bin=/tmp/w/bin
+[linux-fixed] === scenario commit: git commit in the worker pane (project pre-commit + commit-msg hooks present) ===
+[linux-fixed] installed wrappers at /tmp/fm-hookwrap.LmKoIi/state/task-1.git-hooks
+[linux-fixed] pane cmd: git commit -q --trailer 'Co-authored-by: Cursor <cursoragent@cursor.com>' --trailer 'Co-authored-by: Jane Human <jane@example.com>' -m 'fix: windows hook wrapper'
+[linux-fixed]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.LmKoIi/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[linux-fixed]   exit=0 elapsed=0s
+[linux-fixed]   HEAD message: fix: windows hook wrapper||Co-authored-by: Jane Human <jane@example.com>
+[linux-fixed]   project hook log:
+[linux-fixed]   log | project-pre-commit pid=166 GIT_CONFIG_COUNT=0 KEY_0=core.hooksPath VALUE_0=/tmp/fm-hookwrap.LmKoIi/state/task-1.git-hooks inherited=
+[linux-fixed]   log | project-commit-msg pid=175 GIT_CONFIG_COUNT=0 KEY_0=core.hooksPath VALUE_0=/tmp/fm-hookwrap.LmKoIi/state/task-1.git-hooks inherited=
+[linux-fixed] PASS: commit returned (exit 0, 0s)
+[linux-fixed] PASS: Cursor trailer stripped
+[linux-fixed] PASS: human co-author trailer kept
+[linux-fixed] PASS: project pre-commit ran exactly once
+[linux-fixed] PASS: project commit-msg ran exactly once
+[linux-fixed] === scenario push: git push from the worker pane (project pre-push hook present) ===
+[linux-fixed] installed wrappers at /tmp/fm-hookwrap.HjNAcB/state/task-1.git-hooks
+[linux-fixed] pane cmd: git push -q origin HEAD:refs/heads/fm/task-1
+[linux-fixed]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.HjNAcB/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[linux-fixed]   exit=0 elapsed=0s
+[linux-fixed]   project hook log:
+[linux-fixed]   log | project-pre-push pid=381 GIT_CONFIG_COUNT=0 KEY_0=core.hooksPath VALUE_0=/tmp/fm-hookwrap.HjNAcB/state/task-1.git-hooks inherited=
+[linux-fixed] PASS: push returned (exit 0, 0s)
+[linux-fixed] PASS: remote has fm/task-1 at HEAD
+[linux-fixed] PASS: project pre-push ran exactly once
+[linux-fixed] === scenario foreign-hooks-dir: repo core.hooksPath = sibling '<ours>-husky' in native spelling ===
+[linux-fixed]   repo core.hooksPath=/tmp/fm-hookwrap.OjJbdI/state/task-1.git-hooks-husky
+[linux-fixed] installed wrappers at /tmp/fm-hookwrap.OjJbdI/state/task-1.git-hooks
+[linux-fixed] pane cmd: git commit -q -m 'chore: foreign hooks dir'
+[linux-fixed]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.OjJbdI/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[linux-fixed]   exit=0 elapsed=0s
+[linux-fixed]   project hook log:
+[linux-fixed]   log | foreign-pre-commit pid=557 GIT_CONFIG_COUNT=0 KEY_0=core.hooksPath VALUE_0=/tmp/fm-hookwrap.OjJbdI/state/task-1.git-hooks inherited=
+[linux-fixed] PASS: commit returned (exit 0, 0s)
+[linux-fixed] PASS: foreign hooks dir's pre-commit ran exactly once (not mistaken for ours)
+[linux-fixed] PASS: .git/hooks pre-commit correctly not run
+[linux-fixed] === scenario inherited-config: pane already carries GIT_CONFIG fmtest.inherited=<posix path> ===
+[linux-fixed] installed wrappers at /tmp/fm-hookwrap.gLpdCa/state/task-1.git-hooks
+[linux-fixed] pane cmd: git commit -q -m 'chore: inherited config'
+[linux-fixed]   env-file wrote: export GIT_CONFIG_KEY_1=core.hooksPath GIT_CONFIG_VALUE_1='/tmp/fm-hookwrap.gLpdCa/state/task-1.git-hooks' GIT_CONFIG_COUNT=2
+[linux-fixed]   exit=0 elapsed=1s
+[linux-fixed]   project hook log:
+[linux-fixed]   log | project-pre-commit pid=740 GIT_CONFIG_COUNT=1 KEY_0=fmtest.inherited VALUE_0=/tmp/fm-hookwrap.gLpdCa/state inherited=/tmp/fm-hookwrap.gLpdCa/state
+[linux-fixed] PASS: commit returned (exit 0, 1s)
+[linux-fixed] PASS: project hook saw only the inherited entry (our hooksPath entry removed)
+[linux-fixed] PASS: project hook still reads fmtest.inherited through git config
+[linux-fixed] PASS: project pre-commit ran exactly once
+[linux-fixed] === scenario no-project-hooks: commit + push with an empty .git/hooks ===
+[linux-fixed] installed wrappers at /tmp/fm-hookwrap.JplEei/state/task-1.git-hooks
+[linux-fixed] pane cmd: git commit -q --trailer 'Co-authored-by: Cursor <cursoragent@cursor.com>' -m 'chore: no hooks' && git push -q origin HEAD:refs/heads/fm/task-1
+[linux-fixed]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.JplEei/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[linux-fixed]   exit=0 elapsed=0s
+[linux-fixed] PASS: commit+push returned (exit 0, 0s)
+[linux-fixed] PASS: Cursor trailer stripped
+[linux-fixed] === scenario timing: same commit with no wrappers vs through the pane wrappers ===
+[linux-fixed]   plain git commit (no wrappers): 0s
+[linux-fixed] installed wrappers at /tmp/fm-hookwrap.coJiJA/state/task-1.git-hooks
+[linux-fixed] pane cmd: git commit -q -m 'chore: wrapped'
+[linux-fixed]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.coJiJA/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[linux-fixed]   exit=0 elapsed=0s
+[linux-fixed] PASS: wrapped commit returned in 0s
+[linux-fixed] TOTAL FAILURES: 0
+driver exit=0
+##### Linux: live driver, base wrapper (c1d8572)
+[linux-base] os=Linux git=git version 2.49.1 cygpath=none bin=/tmp/base/bin
+[linux-base] === scenario commit: git commit in the worker pane (project pre-commit + commit-msg hooks present) ===
+[linux-base] installed wrappers at /tmp/fm-hookwrap.PCNAbJ/state/task-1.git-hooks
+[linux-base] pane cmd: git commit -q --trailer 'Co-authored-by: Cursor <cursoragent@cursor.com>' --trailer 'Co-authored-by: Jane Human <jane@example.com>' -m 'fix: windows hook wrapper'
+[linux-base]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.PCNAbJ/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[linux-base]   exit=0 elapsed=0s
+[linux-base]   HEAD message: fix: windows hook wrapper||Co-authored-by: Jane Human <jane@example.com>
+[linux-base]   project hook log:
+[linux-base]   log | project-pre-commit pid=1311 GIT_CONFIG_COUNT=0 KEY_0=core.hooksPath VALUE_0=/tmp/fm-hookwrap.PCNAbJ/state/task-1.git-hooks inherited=
+[linux-base]   log | project-commit-msg pid=1320 GIT_CONFIG_COUNT=0 KEY_0=core.hooksPath VALUE_0=/tmp/fm-hookwrap.PCNAbJ/state/task-1.git-hooks inherited=
+[linux-base] PASS: commit returned (exit 0, 0s)
+[linux-base] PASS: Cursor trailer stripped
+[linux-base] PASS: human co-author trailer kept
+[linux-base] PASS: project pre-commit ran exactly once
+[linux-base] PASS: project commit-msg ran exactly once
+[linux-base] === scenario push: git push from the worker pane (project pre-push hook present) ===
+[linux-base] installed wrappers at /tmp/fm-hookwrap.manHKb/state/task-1.git-hooks
+[linux-base] pane cmd: git push -q origin HEAD:refs/heads/fm/task-1
+[linux-base]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.manHKb/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[linux-base]   exit=0 elapsed=1s
+[linux-base]   project hook log:
+[linux-base]   log | project-pre-push pid=1526 GIT_CONFIG_COUNT=0 KEY_0=core.hooksPath VALUE_0=/tmp/fm-hookwrap.manHKb/state/task-1.git-hooks inherited=
+[linux-base] PASS: push returned (exit 0, 1s)
+[linux-base] PASS: remote has fm/task-1 at HEAD
+[linux-base] PASS: project pre-push ran exactly once
+[linux-base] === scenario foreign-hooks-dir: repo core.hooksPath = sibling '<ours>-husky' in native spelling ===
+[linux-base]   repo core.hooksPath=/tmp/fm-hookwrap.GInAej/state/task-1.git-hooks-husky
+[linux-base] installed wrappers at /tmp/fm-hookwrap.GInAej/state/task-1.git-hooks
+[linux-base] pane cmd: git commit -q -m 'chore: foreign hooks dir'
+[linux-base]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.GInAej/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[linux-base]   exit=0 elapsed=0s
+[linux-base]   project hook log:
+[linux-base]   log | foreign-pre-commit pid=1702 GIT_CONFIG_COUNT=0 KEY_0=core.hooksPath VALUE_0=/tmp/fm-hookwrap.GInAej/state/task-1.git-hooks inherited=
+[linux-base] PASS: commit returned (exit 0, 0s)
+[linux-base] PASS: foreign hooks dir's pre-commit ran exactly once (not mistaken for ours)
+[linux-base] PASS: .git/hooks pre-commit correctly not run
+[linux-base] === scenario inherited-config: pane already carries GIT_CONFIG fmtest.inherited=<posix path> ===
+[linux-base] installed wrappers at /tmp/fm-hookwrap.PODNkB/state/task-1.git-hooks
+[linux-base] pane cmd: git commit -q -m 'chore: inherited config'
+[linux-base]   env-file wrote: export GIT_CONFIG_KEY_1=core.hooksPath GIT_CONFIG_VALUE_1='/tmp/fm-hookwrap.PODNkB/state/task-1.git-hooks' GIT_CONFIG_COUNT=2
+[linux-base]   exit=0 elapsed=0s
+[linux-base]   project hook log:
+[linux-base]   log | project-pre-commit pid=1885 GIT_CONFIG_COUNT=1 KEY_0=fmtest.inherited VALUE_0=/tmp/fm-hookwrap.PODNkB/state inherited=/tmp/fm-hookwrap.PODNkB/state
+[linux-base] PASS: commit returned (exit 0, 0s)
+[linux-base] PASS: project hook saw only the inherited entry (our hooksPath entry removed)
+[linux-base] PASS: project hook still reads fmtest.inherited through git config
+[linux-base] PASS: project pre-commit ran exactly once
+[linux-base] === scenario no-project-hooks: commit + push with an empty .git/hooks ===
+[linux-base] installed wrappers at /tmp/fm-hookwrap.OcKbeI/state/task-1.git-hooks
+[linux-base] pane cmd: git commit -q --trailer 'Co-authored-by: Cursor <cursoragent@cursor.com>' -m 'chore: no hooks' && git push -q origin HEAD:refs/heads/fm/task-1
+[linux-base]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.OcKbeI/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[linux-base]   exit=0 elapsed=0s
+[linux-base] PASS: commit+push returned (exit 0, 0s)
+[linux-base] PASS: Cursor trailer stripped
+[linux-base] === scenario timing: same commit with no wrappers vs through the pane wrappers ===
+[linux-base]   plain git commit (no wrappers): 0s
+[linux-base] installed wrappers at /tmp/fm-hookwrap.DGalOa/state/task-1.git-hooks
+[linux-base] pane cmd: git commit -q -m 'chore: wrapped'
+[linux-base]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.DGalOa/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[linux-base]   exit=0 elapsed=0s
+[linux-base] PASS: wrapped commit returned in 0s
+[linux-base] TOTAL FAILURES: 0
+driver exit=0
+##### Linux: new regression test against base wrapper (expect failure)
+not ok - a commit through the Windows spelling of the hooks dir via env failed: hooks alias entered 21 times: the wrapper is re-running itself
+exit=1
+##### Linux: new regression test against fixed wrapper
+ok - the wrapper recognises the Windows spelling of its own hooks dir and neither loops nor skips the project's hook
+# selected test passed
+exit=0
+##### Linux: full tests/fm-git-strip-ai-trailers.test.sh at worktree HEAD
+ok - a Cursor --trailer commit object has no AI co-author and keeps the captain identity
+ok - the Command Code trailer a worker writes into its own message is stripped
+ok - a human Co-authored-by trailer survives next to a stripped Cursor trailer
+ok - a human co-author at a vendor domain survives; only the exact bot address is stripped
+ok - a hook manager resolving the pane hooks dir fails instead of displacing the strip
+ok - a relaunch reinstall replaces the read-only strip dir and still strips
+ok - install chains the previous commit-msg hook after stripping
+ok - a relative project core.hooksPath resolves against the worktree and still runs
+ok - an inherited GIT_CONFIG hooksPath does not become the chained previous hooks
+ok - a project hook that appears after install still runs for the rest of the task
+ok - a pane GIT_CONFIG hooksPath still chains the repository git is actually in
+ok - an empty project core.hooksPath runs no repository hook and still strips the trailer
+ok - an unresolvable project core.hooksPath still refuses the commit
+ok - a valueless project core.hooksPath still refuses the commit
+ok - the repository's pre-push runs and can refuse under every hooksPath override channel
+ok - a git -c hooksPath override still strips the trailer and chains the project's hooks
+ok - the repository's own hook keeps inherited GIT_CONFIG entries such as a scoped credential helper
+ok - env-file writes the canonical hooks path so wrappers still chain the repository hook
+ok - the wrapper recognises the Windows spelling of its own hooks dir and neither loops nor skips the project's hook
+ok - commit-msg file mode strips the trailer and keeps the subject
+ok - install --no-strip leaves commit messages untouched while still chaining
+ok - install --push-guard writes a read-only pre-push that runs the guard before chaining
+# all fm-git-strip-ai-trailers tests passed
+
+real	0m4.361s
+user	0m1.639s
+sys	0m1.721s
+suite exit=0
+docker exit=0

@@ -1,0 +1,16 @@
+[windows-fixed] os=MINGW64_NT-10.0-26200 git=git version 2.55.0.windows.3 cygpath=/usr/bin/cygpath bin=/c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/bin
+[windows-fixed] === scenario no-project-hooks: commit + push with an empty .git/hooks ===
+[windows-fixed] installed wrappers at /tmp/fm-hookwrap.JuiQPP/state/task-1.git-hooks
+[windows-fixed] pane cmd: git commit -q --trailer 'Co-authored-by: Cursor <cursoragent@cursor.com>' -m 'chore: no hooks' && git push -q origin HEAD:refs/heads/fm/task-1
+[windows-fixed]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.JuiQPP/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[windows-fixed]   exit=0 elapsed=14s
+[windows-fixed] PASS: commit+push returned (exit 0, 14s)
+[windows-fixed] PASS: Cursor trailer stripped
+[windows-fixed] === scenario timing: same commit with no wrappers vs through the pane wrappers ===
+[windows-fixed]   plain git commit (no wrappers): 1s
+[windows-fixed] installed wrappers at /tmp/fm-hookwrap.hwIzLs/state/task-1.git-hooks
+[windows-fixed] pane cmd: git commit -q -m 'chore: wrapped'
+[windows-fixed]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.hwIzLs/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[windows-fixed]   exit=0 elapsed=5s
+[windows-fixed] PASS: wrapped commit returned in 5s
+[windows-fixed] TOTAL FAILURES: 0

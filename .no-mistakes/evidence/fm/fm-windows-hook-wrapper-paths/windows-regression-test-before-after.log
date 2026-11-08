@@ -1,0 +1,8 @@
+##### Windows Git Bash: new regression test test_windows_spelling_of_the_hooks_dir_does_not_loop against FIXED wrapper (7f7033d)
+ok - the wrapper recognises the Windows spelling of its own hooks dir and neither loops nor skips the project's hook
+# selected test passed
+exit=0
+
+##### Windows Git Bash: same test against BASE wrapper (c1d8572) - expected to fail
+not ok - a commit through the Windows spelling of the hooks dir via env failed: hooks alias entered 21 times: the wrapper is re-running itself
+exit=1

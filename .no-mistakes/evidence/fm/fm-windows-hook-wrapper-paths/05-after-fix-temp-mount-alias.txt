@@ -1,0 +1,18 @@
+== [FIX 7f7033d, hooks dir under the Temp folder spelled /c/... (the /tmp mount covers it)] fm-bin: /c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/bin
+== [FIX 7f7033d, hooks dir under the Temp folder spelled /c/... (the /tmp mount covers it)] hooks dir as firstmate writes it (pwd -P): /c/Users/amfne/AppData/Local/Temp/fm-hooktest.HCj4gn/run-fix-tempalias/state/task1.git-hooks
+  pane| pane env:  GIT_CONFIG_KEY_1=core.hooksPath GIT_CONFIG_VALUE_1=/c/Users/amfne/AppData/Local/Temp/fm-hooktest.HCj4gn/run-fix-tempalias/state/task1.git-hooks
+  pane| git.exe sees core.hooksPath = C:/Users/amfne/AppData/Local/Temp/fm-hooktest.HCj4gn/run-fix-tempalias/state/task1.git-hooks
+  pane| git.exe rev-parse hooks     = C:/Users/amfne/AppData/Local/Temp/fm-hooktest.HCj4gn/run-fix-tempalias/state/task1.git-hooks
+  pane| git commit exit=124 after 21s
+  pane| git checkout -b exit=124
+  pane| error: failed to push some refs to 'C:/Users/amfne/AppData/Local/Temp/fm-hooktest.HCj4gn/run-fix-tempalias/remote.git'
+  pane| fatal: unable to write flush packet: Broken pipe
+  pane| git push backup HEAD:fm-backup/task1 exit=124 after 20s
+processes running a wrapper from this launch's hooks dir 8s in: 1
+leftover wrapper processes reaped after the run: 3
+-- project hook log:
+  (no project hook ran)
+-- HEAD commit message:
+  init
+  
+-- remote branches:

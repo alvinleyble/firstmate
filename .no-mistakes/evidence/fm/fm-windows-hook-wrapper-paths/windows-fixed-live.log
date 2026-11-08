@@ -1,0 +1,55 @@
+[windows-fixed] os=MINGW64_NT-10.0-26200 git=git version 2.55.0.windows.3 cygpath=/usr/bin/cygpath bin=/c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/bin
+[windows-fixed] === scenario commit: git commit in the worker pane (project pre-commit + commit-msg hooks present) ===
+[windows-fixed] installed wrappers at /tmp/fm-hookwrap.alx2sl/state/task-1.git-hooks
+[windows-fixed] pane cmd: git commit -q --trailer 'Co-authored-by: Cursor <cursoragent@cursor.com>' --trailer 'Co-authored-by: Jane Human <jane@example.com>' -m 'fix: windows hook wrapper'
+[windows-fixed]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.alx2sl/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[windows-fixed]   exit=0 elapsed=11s
+[windows-fixed]   HEAD message: fix: windows hook wrapper||Co-authored-by: Jane Human <jane@example.com>
+[windows-fixed]   project hook log:
+[windows-fixed]   log | project-pre-commit pid=422175 GIT_CONFIG_COUNT=0 KEY_0=core.hooksPath VALUE_0=C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.alx2sl/state/task-1.git-hooks inherited=
+[windows-fixed]   log | project-commit-msg pid=422220 GIT_CONFIG_COUNT=0 KEY_0=core.hooksPath VALUE_0=C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.alx2sl/state/task-1.git-hooks inherited=
+[windows-fixed] PASS: commit returned (exit 0, 11s)
+[windows-fixed] PASS: Cursor trailer stripped
+[windows-fixed] PASS: human co-author trailer kept
+[windows-fixed] PASS: project pre-commit ran exactly once
+[windows-fixed] PASS: project commit-msg ran exactly once
+[windows-fixed] === scenario push: git push from the worker pane (project pre-push hook present) ===
+[windows-fixed] installed wrappers at /tmp/fm-hookwrap.DhvDcD/state/task-1.git-hooks
+[windows-fixed] pane cmd: git push -q origin HEAD:refs/heads/fm/task-1
+[windows-fixed]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.DhvDcD/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[windows-fixed]   exit=0 elapsed=8s
+[windows-fixed]   project hook log:
+[windows-fixed]   log | project-pre-push pid=422804 GIT_CONFIG_COUNT=0 KEY_0=core.hooksPath VALUE_0=C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.DhvDcD/state/task-1.git-hooks inherited=
+[windows-fixed] PASS: push returned (exit 0, 8s)
+[windows-fixed] PASS: remote has fm/task-1 at HEAD
+[windows-fixed] PASS: project pre-push ran exactly once
+[windows-fixed] === scenario foreign-hooks-dir: repo core.hooksPath = sibling '<ours>-husky' in native spelling ===
+[windows-fixed]   repo core.hooksPath=C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.vNLIrA/state/task-1.git-hooks-husky
+[windows-fixed] installed wrappers at /tmp/fm-hookwrap.vNLIrA/state/task-1.git-hooks
+[windows-fixed] pane cmd: git commit -q -m 'chore: foreign hooks dir'
+[windows-fixed]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.vNLIrA/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[windows-fixed]   exit=0 elapsed=17s
+[windows-fixed]   project hook log:
+[windows-fixed]   log | foreign-pre-commit pid=423473 GIT_CONFIG_COUNT=0 KEY_0=core.hooksPath VALUE_0=C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.vNLIrA/state/task-1.git-hooks inherited=
+[windows-fixed] PASS: commit returned (exit 0, 17s)
+[windows-fixed] PASS: foreign hooks dir's pre-commit ran exactly once (not mistaken for ours)
+[windows-fixed] PASS: .git/hooks pre-commit correctly not run
+[windows-fixed] === scenario inherited-config: pane already carries GIT_CONFIG fmtest.inherited=<posix path> ===
+[windows-fixed] installed wrappers at /tmp/fm-hookwrap.d3hFOV/state/task-1.git-hooks
+[windows-fixed] pane cmd: git commit -q -m 'chore: inherited config'
+[windows-fixed]   env-file wrote: export GIT_CONFIG_KEY_1=core.hooksPath GIT_CONFIG_VALUE_1='/tmp/fm-hookwrap.d3hFOV/state/task-1.git-hooks' GIT_CONFIG_COUNT=2
+[windows-fixed]   exit=0 elapsed=15s
+[windows-fixed]   project hook log:
+[windows-fixed]   log | project-pre-commit pid=424426 GIT_CONFIG_COUNT=1 KEY_0=fmtest.inherited VALUE_0=C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.d3hFOV/state inherited=C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.d3hFOV/state
+[windows-fixed] PASS: commit returned (exit 0, 15s)
+[windows-fixed] PASS: project hook saw only the inherited entry (our hooksPath entry removed)
+[windows-fixed] PASS: project hook still reads fmtest.inherited through git config
+[windows-fixed] PASS: project pre-commit ran exactly once
+[windows-fixed] === scenario no-project-hooks: commit + push with an empty .git/hooks ===
+[windows-fixed] installed wrappers at /tmp/fm-hookwrap.IYHQU5/state/task-1.git-hooks
+[windows-fixed] pane cmd: git commit -q --trailer 'Co-authored-by: Cursor <cursoragent@cursor.com>' -m 'chore: no hooks' && git push -q origin HEAD:refs/heads/fm/task-1
+[windows-fixed]   env-file wrote: export GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0='/tmp/fm-hookwrap.IYHQU5/state/task-1.git-hooks' GIT_CONFIG_COUNT=1
+[windows-fixed]   exit=0 elapsed=26s
+[windows-fixed] FAIL: commit+push did not complete (exit 0 after 26s)
+[windows-fixed] PASS: Cursor trailer stripped
+[windows-fixed] TOTAL FAILURES: 1

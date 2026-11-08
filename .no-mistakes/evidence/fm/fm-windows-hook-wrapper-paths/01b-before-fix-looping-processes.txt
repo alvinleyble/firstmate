@@ -1,0 +1,10 @@
+# Snapshot of the pre-fix run's own processes ~4 min after start (MSYS pid, parent, Windows pid, command)
+t1 339318 ppid=1 winpid=88668 :: bash C:/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/run-base-drive/state/task1.git-hooks/pre-commit 
+t1 339626 ppid=1 winpid=10520 :: bash C:/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/run-base-drive/state/task1.git-hooks/post-checkout accefe1ac937cc1a
+t1 339619 ppid=339219 winpid=45376 :: "C:\Program Files\Git\mingw64\bin\git.exe" checkout -q -b fm-backup/task1
+t2 339318 ppid=1 winpid=65320 :: bash C:/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/run-base-drive/state/task1.git-hooks/pre-commit 
+t2 339626 ppid=1 winpid=89368 :: bash C:/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/run-base-drive/state/task1.git-hooks/post-checkout accefe1ac937cc1a
+t2 339619 ppid=339219 winpid=45376 :: "C:\Program Files\Git\mingw64\bin\git.exe" checkout -q -b fm-backup/task1
+t3 339318 ppid=1 winpid=55104 :: bash C:/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/run-base-drive/state/task1.git-hooks/pre-commit 
+t3 339626 ppid=1 winpid=34436 :: bash C:/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/run-base-drive/state/task1.git-hooks/post-checkout accefe1ac937cc1a
+t3 339619 ppid=339219 winpid=45376 :: "C:\Program Files\Git\mingw64\bin\git.exe" checkout -q -b fm-backup/task1

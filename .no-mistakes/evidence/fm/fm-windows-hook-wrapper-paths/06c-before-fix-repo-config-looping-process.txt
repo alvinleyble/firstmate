@@ -1,0 +1,4 @@
+# pre-fix wrapper, repo config core.hooksPath=C:/... of its own dir: the pre-commit wrapper is still re-exec'ing itself minutes after timeout killed git (new Windows pid each sample)
+t1 pid=375756 ppid=1 winpid=131284 :: bash C:/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/base-channels/ch-repo-config-mixed/state/t.git-hooks/pre-commit 
+t2 pid=375756 ppid=1 winpid=133080 :: bash C:/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/base-channels/ch-repo-config-mixed/state/t.git-hooks/pre-commit 
+t3 pid=375756 ppid=1 winpid=135696 :: bash C:/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/base-channels/ch-repo-config-mixed/state/t.git-hooks/pre-commit 

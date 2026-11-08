@@ -1,0 +1,31 @@
+== [repo-config-mixed] hooks dir: /c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/fix-channels/ch-repo-config-mixed/state/t.git-hooks
+   repo config core.hooksPath = C:/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/fix-channels/ch-repo-config-mixed/state/t.git-hooks
+   pane| git commit exit=0 after 3s
+   looping wrappers reaped: 0
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-channels.sh: line 64: /c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/fix-channels/ch-repo-config-mixed/hooks.log: No such file or directory
+   project hooks run: 
+   HEAD message of wt: fix: repo-config-mixed||
+== [repo-config-backslash] hooks dir: /c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/fix-channels/ch-repo-config-backslash/state/t.git-hooks
+   repo config core.hooksPath = C:\Users\amfne\.no-mistakes\worktrees\efaf735780a2\01M5NXPCRJNE17PMF0NDSWC074\scratchpad-hooktest\fix-channels\ch-repo-config-backslash\state\t.git-hooks
+   pane| git commit exit=0 after 2s
+   looping wrappers reaped: 0
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-channels.sh: line 64: /c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/fix-channels/ch-repo-config-backslash/hooks.log: No such file or directory
+   project hooks run: 
+   HEAD message of wt: fix: repo-config-backslash||
+== [repo-config-lowerdrive] hooks dir: /c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/fix-channels/ch-repo-config-lowerdrive/state/t.git-hooks
+   repo config core.hooksPath = c:/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/fix-channels/ch-repo-config-lowerdrive/state/t.git-hooks
+   pane| git commit exit=0 after 2s
+   looping wrappers reaped: 0
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-channels.sh: line 64: /c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/fix-channels/ch-repo-config-lowerdrive/hooks.log: No such file or directory
+   project hooks run: 
+   HEAD message of wt: fix: repo-config-lowerdrive||
+== [git-c] hooks dir: /c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/fix-channels/ch-git-c/state/t.git-hooks
+   pane| git commit exit=0 after 2s
+   looping wrappers reaped: 0
+   project hooks run: pre-commit of wt ran;
+   HEAD message of wt: fix: git-c||
+== [other-repo] hooks dir: /c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/fix-channels/ch-other-repo/state/t.git-hooks
+   pane| git commit exit=0 after 3s
+   looping wrappers reaped: 0
+   project hooks run: pre-commit of other ran;
+   HEAD message of other: fix: other-repo||

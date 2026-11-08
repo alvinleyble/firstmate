@@ -1,0 +1,47 @@
+Linux 6.6.87.2-microsoft-standard-WSL2
+git version 2.47.3
+cygpath on PATH: none
+tester
+################ Linux, BASE c1d8572
+== [LINUX BASE c1d8572] fm-bin: /tmp/work/base/bin
+== [LINUX BASE c1d8572] hooks dir as firstmate writes it (pwd -P): /tmp/work/run-base/state/task1.git-hooks
+  pane| pane env:  GIT_CONFIG_KEY_1=core.hooksPath GIT_CONFIG_VALUE_1=/tmp/work/run-base/state/task1.git-hooks
+  pane| git.exe sees core.hooksPath = /tmp/work/run-base/state/task1.git-hooks
+  pane| git.exe rev-parse hooks     = /tmp/work/run-base/state/task1.git-hooks
+  pane| git commit exit=0 after 0s
+  pane| git checkout -b exit=0
+  pane| git push backup HEAD:fm-backup/task1 exit=0 after 0s
+processes running a wrapper from this launch's hooks dir 8s in: 0
+leftover wrapper processes reaped after the run: 0
+-- project hook log:
+  project pre-commit ran (core.hooksPath env count=1 inherited.kept=kept)
+  project commit-msg ran (core.hooksPath env count=1 inherited.kept=kept)
+  project pre-push ran (core.hooksPath env count=1 inherited.kept=kept)
+-- HEAD commit message:
+  fix: windows hook wrapper
+  
+-- remote branches:
+  refs/heads/fm-backup/task1
+################ Linux, FIX 7f7033d
+== [LINUX FIX 7f7033d] fm-bin: /tmp/work/bin
+== [LINUX FIX 7f7033d] hooks dir as firstmate writes it (pwd -P): /tmp/work/run-fix/state/task1.git-hooks
+  pane| pane env:  GIT_CONFIG_KEY_1=core.hooksPath GIT_CONFIG_VALUE_1=/tmp/work/run-fix/state/task1.git-hooks
+  pane| git.exe sees core.hooksPath = /tmp/work/run-fix/state/task1.git-hooks
+  pane| git.exe rev-parse hooks     = /tmp/work/run-fix/state/task1.git-hooks
+  pane| git commit exit=0 after 0s
+  pane| git checkout -b exit=0
+  pane| git push backup HEAD:fm-backup/task1 exit=0 after 0s
+processes running a wrapper from this launch's hooks dir 8s in: 0
+leftover wrapper processes reaped after the run: 0
+-- project hook log:
+  project pre-commit ran (core.hooksPath env count=1 inherited.kept=kept)
+  project commit-msg ran (core.hooksPath env count=1 inherited.kept=kept)
+  project pre-push ran (core.hooksPath env count=1 inherited.kept=kept)
+-- HEAD commit message:
+  fix: windows hook wrapper
+  
+-- remote branches:
+  refs/heads/fm-backup/task1
+################ Linux, FIX 7f7033d with push guard
+== [LINUX FIX 7f7033d push guard] fm-bin: /tmp/work/bin
+== [LINUX FIX 7f7033d push guard] hooks dir as firstmate writes it (pwd -P): /tmp/work/run-fix-guard/state/task1.git-hooks

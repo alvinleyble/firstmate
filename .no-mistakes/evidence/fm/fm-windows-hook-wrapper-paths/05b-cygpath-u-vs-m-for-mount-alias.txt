@@ -1,0 +1,11 @@
+# Same directory, three spellings: the hooks dir as firstmate writes it (pwd -P), git.exe's spelling, and the /tmp mount spelling
+ours (pwd -P) = /c/Users/amfne/AppData/Local/Temp/fm-hooktest.HCj4gn/run-fix-tempalias/state/task1.git-hooks
+git spelling  = C:/Users/amfne/AppData/Local/Temp/fm-hooktest.HCj4gn/run-fix-tempalias/state/task1.git-hooks
+mount form    = /tmp/fm-hooktest.HCj4gn/run-fix-tempalias/state/task1.git-hooks
+-- cygpath -u -- ours git   (what the fix's is_ours compares; differ => loop)
+/c/Users/amfne/AppData/Local/Temp/fm-hooktest.HCj4gn/run-fix-tempalias/state/task1.git-hooks
+/tmp/fm-hooktest.HCj4gn/run-fix-tempalias/state/task1.git-hooks
+-- cygpath -m -- ours git mount   (Windows form; all equal)
+C:/Users/amfne/AppData/Local/Temp/fm-hooktest.HCj4gn/run-fix-tempalias/state/task1.git-hooks
+C:/Users/amfne/AppData/Local/Temp/fm-hooktest.HCj4gn/run-fix-tempalias/state/task1.git-hooks
+C:/Users/amfne/AppData/Local/Temp/fm-hooktest.HCj4gn/run-fix-tempalias/state/task1.git-hooks

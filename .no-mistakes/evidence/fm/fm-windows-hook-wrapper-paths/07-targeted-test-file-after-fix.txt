@@ -1,0 +1,6 @@
+ok - a Cursor --trailer commit object has no AI co-author and keeps the captain identity
+ok - the Command Code trailer a worker writes into its own message is stripped
+ok - a human Co-authored-by trailer survives next to a stripped Cursor trailer
+ok - a human co-author at a vendor domain survives; only the exact bot address is stripped
+not ok - a hook manager in the pane would resolve C:/Users/amfne/AppData/Local/Temp/fm-git-strip-ai-trailers.VoEcmj/hooks-manager, not the strip dir /tmp/fm-git-strip-ai-trailers.VoEcmj/hooks-manager
+exit=1 elapsed=35s

@@ -1,0 +1,20 @@
+﻿--- snapshot 1 at 11:55:36.227 (base c1d8572 wrapper; git commit started ~5 min earlier, git.exe already gone): 3 pre-commit wrapper processes alive
+pid=144008 parent=137736 created=11:55:35.584 "C:\Program Files\Git\usr\bin\bash.exe" C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.lfitoR/state/task-1.git-hooks/pre-commit
+pid=143352 parent=144008 created=11:55:35.809 "C:\Program Files\Git\usr\bin\bash.exe" C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.lfitoR/state/task-1.git-hooks/pre-commit
+pid=69828 parent=143352 created=11:55:35.909 "C:\Program Files\Git\usr\bin\bash.exe" C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.lfitoR/state/task-1.git-hooks/pre-commit
+--- snapshot 2 at 11:55:38.543 (base c1d8572 wrapper; git commit started ~5 min earlier, git.exe already gone): 1 pre-commit wrapper processes alive
+pid=139776 parent=143636 created=11:55:37.529 "C:\Program Files\Git\usr\bin\bash.exe" C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.lfitoR/state/task-1.git-hooks/pre-commit
+--- snapshot 3 at 11:55:40.646 (base c1d8572 wrapper; git commit started ~5 min earlier, git.exe already gone): 3 pre-commit wrapper processes alive
+pid=142300 parent=138192 created=11:55:40.192 "C:\Program Files\Git\usr\bin\bash.exe" C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.lfitoR/state/task-1.git-hooks/pre-commit
+pid=141496 parent=142300 created=11:55:40.287 "C:\Program Files\Git\usr\bin\bash.exe" C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.lfitoR/state/task-1.git-hooks/pre-commit
+pid=144332 parent=141496 created=11:55:40.442 "C:\Program Files\Git\usr\bin\bash.exe" C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.lfitoR/state/task-1.git-hooks/pre-commit
+
+=== git push (base c1d8572 wrapper) - pre-push wrapper first seen 11:56:21, snapshots taken 40s later ===
+--- snapshot 1 at 11:57:02.912: 1 pre-push wrapper processes alive
+pid=131408 parent=144040 created=11:57:02.282 "C:\Program Files\Git\usr\bin\bash.exe" C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.dHbvK1/state/task-1.git-hooks/pre-push origin C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.dHbvK1/origin.git
+--- snapshot 2 at 11:57:04.981: 2 pre-push wrapper processes alive
+pid=112144 parent=133936 created=11:57:04.652 "C:\Program Files\Git\usr\bin\bash.exe" C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.dHbvK1/state/task-1.git-hooks/pre-push origin C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.dHbvK1/origin.git
+pid=69216 parent=112144 created=11:57:04.804 "C:\Program Files\Git\usr\bin\bash.exe" C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.dHbvK1/state/task-1.git-hooks/pre-push origin C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.dHbvK1/origin.git
+--- snapshot 3 at 11:57:07.064: 2 pre-push wrapper processes alive
+pid=128532 parent=143716 created=11:57:06.763 "C:\Program Files\Git\usr\bin\bash.exe" C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.dHbvK1/state/task-1.git-hooks/pre-push origin C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.dHbvK1/origin.git
+pid=139064 parent=128532 created=11:57:06.871 "C:\Program Files\Git\usr\bin\bash.exe" C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.dHbvK1/state/task-1.git-hooks/pre-push origin C:/Users/amfne/AppData/Local/Temp/fm-hookwrap.dHbvK1/origin.git

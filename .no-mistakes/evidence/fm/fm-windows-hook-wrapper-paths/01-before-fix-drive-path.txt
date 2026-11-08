@@ -1,0 +1,45 @@
+== [BASE c1d8572 (before fix), /c drive path] fm-bin: /c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/base/bin
+== [BASE c1d8572 (before fix), /c drive path] hooks dir as firstmate writes it (pwd -P): /c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/run-base-drive/state/task1.git-hooks
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 75: /proc/339242/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 75: /proc/339246/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 75: /proc/339302/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 75: /proc/339314/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 75: /proc/339368/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 75: /proc/339370/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 75: /proc/339371/cmdline: No such file or directory
+  pane| pane env:  GIT_CONFIG_KEY_1=core.hooksPath GIT_CONFIG_VALUE_1=/c/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/run-base-drive/state/task1.git-hooks
+  pane| git.exe sees core.hooksPath = C:/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/run-base-drive/state/task1.git-hooks
+  pane| git.exe rev-parse hooks     = C:/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/run-base-drive/state/task1.git-hooks
+  pane| git commit exit=124 after 22s
+  pane| error: failed to push some refs to 'C:/Users/amfne/.no-mistakes/worktrees/efaf735780a2/01M5NXPCRJNE17PMF0NDSWC074/scratchpad-hooktest/run-base-drive/remote.git'
+  pane| fatal: unable to write flush packet: Broken pipe
+  pane| git push backup HEAD:fm-backup/task1 exit=124 after 21s
+processes running a wrapper from task1.git-hooks 8s in: 2
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/339174/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/339196/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/339197/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/348511/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/351592/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/351647/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/351657/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/351662/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/352057/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/352788/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/352793/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/352796/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/353031/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/353105/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/353106/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/353114/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/353119/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/353123/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/353124/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/353138/cmdline: No such file or directory
+/c/Users/amfne/.no-mistakes/evidence/01M5NXPCRJNE17PMF0NDSWC074/drive-hook-wrapper.sh: line 87: /proc/353151/cmdline: No such file or directory
+leftover wrapper processes reaped after the run: 0
+-- project hook log:
+  (no project hook ran)
+-- HEAD commit message:
+  init
+  
+-- remote branches:

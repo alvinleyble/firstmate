@@ -1,0 +1,2 @@
+ok - a Cursor --trailer commit object has no AI co-author and keeps the captain identity
+ok - the Command Code trailer a worker writes into its own message is stripped
